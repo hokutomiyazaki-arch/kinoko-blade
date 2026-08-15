@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KINOKO BLADE — 胞子紋闘技</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 胞子紋 palette — colours taken from real spore-print classes */
+  --ink:#1E1B24;        /* purple-black spore */
+  --ink-2:#282433;
+  --ink-3:#332E40;
+  --cream:#EDE4CC;      /* cream spore */
+  --rust:#B06A3B;       /* rust-brown spore — ATTACK */
+  --moss:#7C8F4E;       /* moss — GUARD */
+  --pink:#D08A92;       /* pink spore — damage */
+  --dim:#6E6880;
+  --display:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --mono:"Roboto Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --gothic:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--ink);color:var(--cream);font-family:var(--gothic);
+  display:flex;justify-content:center;
+  background-image:radial-gradient(circle at 50% 0%,#2A2534 0%,var(--ink) 60%);
+  overscroll-behavior:none;
+}
+#app{width:100%;max-width:760px;padding:14px 14px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+
+/* ---- masthead ---- */
+.mast{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--ink-3);padding-bottom:8px}
+.mast h1{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.14em}
+.mast .sub{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--dim);text-transform:uppercase}
+
+/* ---- select screen ---- */
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
+.roster{display:flex;flex-direction:column;gap:8px}
+.card{
+  display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:center;
+  background:var(--ink-2);border:1px solid var(--ink-3);border-left:3px solid var(--accent,var(--dim));
+  padding:10px 12px;cursor:pointer;transition:background .15s,transform .1s;
+}
+.card:hover,.card:focus-visible{background:var(--ink-3);outline:none}
+.card:active{transform:translateX(2px)}
+.card[aria-selected="true"]{background:var(--ink-3);border-color:var(--cream);border-left-color:var(--accent)}
+.card canvas{width:56px;height:56px;display:block}
+.card .nm{font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:.05em}
+.card .rl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--accent,var(--dim));margin-left:8px}
+.card .sk{font-size:11px;color:var(--dim);margin-top:2px;line-height:1.5}
+.bars{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+.bar{font-family:var(--mono);font-size:8px;letter-spacing:.1em;color:var(--dim)}
+.bar i{display:block;height:3px;background:var(--ink);margin-top:3px;position:relative;overflow:hidden}
+.bar i::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w,50%);background:var(--accent,var(--dim))}
+
+/* ---- arena ---- */
+#stage{width:100%;display:block;background:var(--ink-2);border:1px solid var(--ink-3);touch-action:none}
+.hud{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.side .who{font-family:var(--display);font-size:14px;letter-spacing:.06em;display:flex;align-items:baseline;gap:6px}
+.side .who em{font-family:var(--mono);font-style:normal;font-size:9px;letter-spacing:.14em;color:var(--dim)}
+.side.r{text-align:right}
+.side.r .who{justify-content:flex-end}
+.hp{height:7px;background:var(--ink-3);margin-top:5px;position:relative;overflow:hidden}
+.hp b{position:absolute;top:0;bottom:0;left:0;width:100%;background:var(--cream);transition:width .18s ease-out}
+.hp.r b{left:auto;right:0}
+.hp u{position:absolute;top:0;bottom:0;background:var(--pink);opacity:.5;text-decoration:none;transition:width .5s .15s}
+.clock{font-family:var(--mono);font-weight:700;font-size:26px;letter-spacing:.04em;min-width:56px;text-align:center}
+.clock.low{color:var(--pink)}
+
+/* ---- controls ---- */
+.pads{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pad{
+  position:relative;border:1px solid var(--ink-3);background:var(--ink-2);color:var(--cream);
+  font-family:var(--display);font-weight:600;font-size:19px;letter-spacing:.24em;
+  padding:16px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;
+  cursor:pointer;overflow:hidden;transition:background .1s;
+}
+.pad small{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--dim)}
+.pad.ready{border-color:var(--c);background:linear-gradient(0deg,color-mix(in srgb,var(--c) 16%,var(--ink-2)),var(--ink-2))}
+.pad:active{background:var(--c)!important;color:var(--ink)}
+.pad:disabled{cursor:default}
+.pad canvas{width:42px;height:42px}
+#padA{--c:var(--rust)} #padG{--c:var(--moss)}
+
+.btn{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;background:none;border:1px solid var(--ink-3);color:var(--cream);padding:12px;cursor:pointer;width:100%}
+.btn.go{background:var(--cream);color:var(--ink);border-color:var(--cream);font-weight:700}
+.btn:hover{border-color:var(--cream)}
+.log{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--dim);min-height:14px;text-align:center}
+.hide{display:none!important}
+.result{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:.2em;text-align:center;padding:6px 0}
+.keys{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--dim);text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="mast">
+    <h1>菌血闘技</h1>
+    <span class="sub">Kinoko Blade</span>
+  </div>
+
+  <!-- ============ SELECT ============ -->
+  <section id="scSelect">
+    <p class="eyebrow" style="margin-bottom:8px">子実体を選べ / choose your fruiting body</p>
+    <div class="roster" id="roster"></div>
+    <div style="height:10px"></div>
+    <button class="btn go" id="startBtn">対戦開始</button>
+    <p class="keys" style="margin-top:8px">キーボード: F / ← = 攻撃 &nbsp;·&nbsp; J / → = 防御</p>
+  </section>
+
+  <!-- ============ FIGHT ============ -->
+  <section id="scFight" class="hide">
+    <div class="hud">
+      <div class="side l">
+        <div class="who" id="nmL">—<em>YOU</em></div>
+        <div class="hp"><u id="ghL"></u><b id="hpL"></b></div>
+      </div>
+      <div class="clock" id="clock">90</div>
+      <div class="side r">
+        <div class="who" id="nmR"><em>CPU</em>—</div>
+        <div class="hp r"><u id="ghR"></u><b id="hpR"></b></div>
+      </div>
+    </div>
+    <canvas id="stage" width="640" height="248"></canvas>
+    <p class="log" id="log">&nbsp;</p>
+    <div class="pads">
+      <button class="pad" id="padA"><canvas width="84" height="84"></canvas>攻<small>ATTACK</small></button>
+      <button class="pad" id="padG"><canvas width="84" height="84"></canvas>防<small>GUARD</small></button>
+    </div>
+  </section>
+
+  <!-- ============ RESULT ============ -->
+  <section id="scEnd" class="hide">
+    <p class="result" id="resultText"></p>
+    <p class="log" id="resultSub"></p>
+    <div style="height:10px"></div>
+    <button class="btn go" id="againBtn">もう一度</button>
+    <div style="height:8px"></div>
+    <button class="btn" id="backBtn">きのこを選び直す</button>
+  </section>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   BALANCE TABLE  —  すべての戦略的パラメータはここに集約
+   ------------------------------------------------------------------
+   設計意図:
+     speed が高い  → 遭遇回数が増える = 相手のゲージ充填を「飢えさせる」
+     speed が低い  → 遭遇は稀 = 1回の交錯を必ず決めきる必要がある
+   つまり速度は攻撃力ではなく「テンポ支配力」。
+   ゲージ秒数は speed とゆるやかに逆相関させつつ、
+   atkGauge と guardGauge を独立させることで型を分けている。
+   ══════════════════════════════════════════════════════════════════ */
+const SPECIES = [
+  {
+    id:"shiitake", name:"シイタケ", role:"BALANCE", skill:"傘割り",
+    note:"基準値。守りが1.2秒で回るので、様子見と差し込みを両立できる。",
+    hp:104, speed:105, dmg:16, reach:134,
+    atkGauge:2.0, guardGauge:1.2,
+    windup:0.26, active:0.14, recover:0.32,
+    guardTime:0.70, parryWindow:0.20,
+    cap:"#7A5236", gill:"#E4D7B8", accent:"#B08050",
+  },
+  {
+    id:"enoki", name:"エノキ", role:"RUSH", skill:"束ね突き",
+    note:"最速。遭遇回数を強引に増やして重いきのこのゲージを枯らす。振りが0.14秒で読まれにくい。",
+    hp:88, speed:165, dmg:13, reach:118,
+    atkGauge:1.1, guardGauge:0.9,
+    windup:0.14, active:0.10, recover:0.20,
+    guardTime:0.52, parryWindow:0.19,
+    cap:"#EFE6CE", gill:"#CFC3A4", accent:"#DCCFA8",
+  },
+  {
+    id:"benitengu", name:"ベニテングタケ", role:"VENOM", skill:"紅の一閃",
+    note:"最遅・最重。命中で猛毒6秒。振りかぶり0.46秒は丸見え、外せば3.2秒の空白。",
+    hp:70, speed:62, dmg:23, reach:136,
+    atkGauge:3.2, guardGauge:2.6,
+    windup:0.46, active:0.18, recover:0.56,
+    guardTime:0.62, parryWindow:0.14,
+    poison:{dps:1.5, dur:6},
+    cap:"#C0392B", gill:"#F2E6DC", accent:"#D0554A",
+  },
+  {
+    id:"maitake", name:"マイタケ", role:"WALL", skill:"舞い返し",
+    note:"防御ゲージが1.05秒で回る鉄壁。ジャスト防御で6点を反射する。攻めは2.8秒に一度だけ。",
+    hp:132, speed:70, dmg:15, reach:122,
+    atkGauge:2.8, guardGauge:1.05,
+    windup:0.32, active:0.15, recover:0.40,
+    guardTime:0.90, parryWindow:0.22,
+    reflect:6,
+    cap:"#6B5B45", gill:"#CFC0A2", accent:"#8E7B5E",
+  },
+  {
+    id:"matsutake", name:"マツタケ", role:"TECHNIC", skill:"香気斬り",
+    note:"ジャスト防御の受付が最長0.24秒。成功すれば攻撃ゲージが即全快し、そのまま斬り返せる。",
+    hp:74, speed:118, dmg:15, reach:126,
+    atkGauge:2.8, guardGauge:2.4,
+    windup:0.20, active:0.12, recover:0.30,
+    guardTime:0.56, parryWindow:0.24,
+    parryRefund:true,
+    cap:"#9C8156", gill:"#EDE0C4", accent:"#BFA070",
+  },
+];
+
+const RULES = {
+  arenaW:640, arenaH:248, floorY:196,
+  wallL:44, wallR:596,
+  bodyGap:62,          // これ以下に近づくと衝突 → 互いに反転
+  blockChip:0.35, chipCap:5,  // 通常ガードで通る削り（割合＋上限）。籠城対策かつ低HP溶かし防止
+  parryStun:0.65,       // パリィされた側の硬直
+  hurtTime:0.25,
+  knockback:26,
+  roundTime:90,        // 時間切れは残りHP割合で判定
+  cpuReact:0.22,       // CPUの反応遅れ
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   きのこの描画
+   ══════════════════════════════════════════════════════════════════ */
+function drawMushroom(g, s, x, y, scale, dir, pose){
+  // y = 足元。dir: 1=右向き -1=左向き
+  g.save(); g.translate(x,y); g.scale(dir*scale, scale);
+  const tall = s.id==="enoki";
+  const stipeH = tall? 46 : 34, stipeW = tall? 8 : 13;
+  const capW = tall? 20 : (s.id==="benitengu"? 42 : 36);
+  const capH = tall? 12 : (s.id==="maitake"? 16 : 22);
+
+  // 影
+  g.fillStyle="rgba(0,0,0,.30)"; g.beginPath();
+  g.ellipse(0,1,capW*.62,4,0,0,7); g.fill();
+
+  // 剣（前方）
+  const sw = pose.swing; // -1..1 振り角
+  g.save(); g.translate(stipeW*.5+2, -stipeH*0.62); g.rotate(-0.9 + sw*1.9);
+  g.strokeStyle="#7E7688"; g.lineWidth=3.4; g.lineCap="round";
+  g.beginPath(); g.moveTo(0,0); g.lineTo(30,0); g.stroke();
+  g.strokeStyle=s.gill; g.lineWidth=1; g.beginPath(); g.moveTo(4,0); g.lineTo(29,0); g.stroke();
+  g.strokeStyle="#4A4456"; g.lineWidth=6; g.beginPath(); g.moveTo(-4,0); g.lineTo(0,0); g.stroke();
+  g.restore();
+
+  // 柄
+  g.fillStyle=s.gill; g.beginPath();
+  g.roundRect(-stipeW/2, -stipeH, stipeW, stipeH, 3); g.fill();
+  g.strokeStyle="rgba(0,0,0,.22)"; g.lineWidth=1; g.stroke();
+
+  // 傘
+  g.fillStyle=s.cap;
+  if(s.id==="maitake"){ // 舞茸=重なった小傘
+    for(let i=-1;i<=1;i++){ g.beginPath();
+      g.ellipse(i*13, -stipeH-4+Math.abs(i)*3, 14, capH*.8, i*0.25, Math.PI, 0); g.fill(); }
+  } else {
+    g.beginPath(); g.ellipse(0, -stipeH, capW, capH, 0, Math.PI, 0); g.fill();
+    g.beginPath(); g.ellipse(0, -stipeH, capW, capH*.24, 0, 0, Math.PI); g.fill();
+  }
+  // 傘のディテール
+  if(s.id==="benitengu"){ g.fillStyle="#F4ECE2";
+    [[-24,-8],[-8,-14],[10,-13],[26,-6],[0,-4]].forEach(([a,b])=>{
+      g.beginPath(); g.arc(a, -stipeH+b, 3.1, 0, 7); g.fill(); }); }
+  if(s.id==="shiitake"){ g.strokeStyle="rgba(237,228,204,.45)"; g.lineWidth=1.2;
+    for(let i=-2;i<=2;i++){ g.beginPath();
+      g.moveTo(i*11,-stipeH-capH*.6); g.lineTo(i*13,-stipeH-2); g.stroke(); } }
+  if(s.id==="matsutake"){ g.strokeStyle="rgba(30,27,36,.35)"; g.lineWidth=1.4;
+    for(let i=-2;i<=2;i++){ g.beginPath();
+      g.moveTo(i*9,-stipeH-capH*.75); g.lineTo(i*10,-stipeH-3); g.stroke(); } }
+
+  // 目
+  g.fillStyle="#1E1B24";
+  const ey = -stipeH+11;
+  g.beginPath(); g.arc(-4, ey, 1.8, 0, 7); g.arc(5, ey, 1.8, 0, 7); g.fill();
+  g.restore();
+}
+
+/* ---------- 胞子紋ゲージ（シグネチャ要素） ---------- */
+function drawSporeGauge(g, cx, cy, r, pct, color, dimColor){
+  g.save(); g.translate(cx,cy);
+  const N=32;
+  for(let i=0;i<N;i++){
+    const a0 = -Math.PI/2 + i/N*Math.PI*2, a1 = a0 + (Math.PI*2/N)*0.66;
+    const on = (i/N) < pct;
+    g.strokeStyle = on? color : dimColor;
+    g.lineWidth = on? 2.4 : 1.6;
+    g.beginPath(); g.arc(0,0,r,a0,a1); g.stroke();
+  }
+  g.strokeStyle = pct>=1? color : dimColor; g.lineWidth=1;
+  g.beginPath(); g.arc(0,0,r*0.42,0,7); g.stroke();
+  if(pct>=1){ g.fillStyle=color; g.beginPath(); g.arc(0,0,r*0.22,0,7); g.fill(); }
+  g.restore();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FIGHTER
+   ══════════════════════════════════════════════════════════════════ */
+class Fighter{
+  constructor(spec, x, dir, isPlayer){
+    this.s = spec; this.x = x; this.dir = dir; this.isPlayer = isPlayer;
+    this.hp = spec.hp; this.maxHp = spec.hp;
+    this.atk = 0; this.grd = 0;              // 0..1 ゲージ
+    this.state = "walk"; this.t = 0;         // 状態内経過秒
+    this.hitDone = false; this.poison = 0; this.poisonDps = 0;
+    this.flash = 0; this.swing = 0;
+  }
+  get busy(){ return this.state!=="walk"; }
+  get ready(){ return {a:this.atk>=1, g:this.grd>=1}; }
+
+  tryAttack(){ if(this.state!=="walk"||this.atk<1) return false;
+    this.atk=0; this.state="windup"; this.t=0; this.hitDone=false; return true; }
+  tryGuard(){ if(this.state!=="walk"||this.grd<1) return false;
+    this.grd=0; this.state="guard"; this.t=0; return true; }
+
+  update(dt, foe){
+    this.t += dt; this.flash = Math.max(0, this.flash-dt*4);
+    if(this.poison>0){ this.poison-=dt; this.hp = Math.max(0, this.hp - this.poisonDps*dt); }
+
+    const S=this.s;
+    if(this.state==="walk"){
+      // ゲージは「歩いている間だけ」溜まる → 行動には常に機会費用がある
+      this.atk = Math.min(1, this.atk + dt/S.atkGauge);
+      this.grd = Math.min(1, this.grd + dt/S.guardGauge);
+      this.x += this.dir * S.speed * dt;
+      if(this.x <= RULES.wallL){ this.x = RULES.wallL; this.dir = 1; }
+      if(this.x >= RULES.wallR){ this.x = RULES.wallR; this.dir = -1; }
+      this.swing = 0;
+    }
+    else if(this.state==="windup"){ this.swing = -(this.t/S.windup)*0.55;
+      if(this.t>=S.windup){ this.state="active"; this.t=0; } }
+    else if(this.state==="active"){ this.swing = 0.35 + (this.t/S.active)*0.65;
+      if(this.t>=S.active){ this.state="recover"; this.t=0; } }
+    else if(this.state==="recover"){ this.swing = 1.0 - (this.t/S.recover);
+      if(this.t>=S.recover){ this.state="walk"; this.t=0; } }
+    else if(this.state==="guard"){ this.swing = -0.15;
+      if(this.t>=S.guardTime){ this.state="walk"; this.t=0; } }
+    else if(this.state==="stun"||this.state==="hurt"){
+      this.swing *= 0.9;
+      const lim = this.state==="stun"? RULES.parryStun : RULES.hurtTime;
+      if(this.t>=lim){ this.state="walk"; this.t=0; } }
+  }
+  facing(foe){ return Math.sign(foe.x - this.x) === this.dir; }
+  takeHit(dmg){ this.hp = Math.max(0, this.hp - dmg); this.flash = 1; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   GAME
+   ══════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const cv = $("stage"), g = cv.getContext("2d");
+let P, C, timeLeft, running=false, last=0, logT=0, cpuTimer=0, cpuIntent=null;
+let pick = 0, cpuPick = 1;
+
+function begin(){
+  P = new Fighter(SPECIES[pick], 200, 1, true);
+  C = new Fighter(SPECIES[cpuPick], 440, -1, false);
+  timeLeft = RULES.roundTime; running = true; logT=0; cpuTimer=0; cpuIntent=null;
+  $("nmL").innerHTML = P.s.name + '<em>YOU</em>';
+  $("nmR").innerHTML = '<em>CPU</em>' + C.s.name;
+  show("scFight"); say("交錯を待て");
+  last = performance.now(); requestAnimationFrame(loop);
+}
+
+function loop(now){
+  if(!running) return;
+  const dt = Math.min(0.033, (now-last)/1000); last = now;
+  step(dt); render(); requestAnimationFrame(loop);
+}
+
+function step(dt){
+  timeLeft -= dt;
+  logT = Math.max(0, logT-dt);
+  cpuThink(dt);
+
+  P.update(dt, C); C.update(dt, P);
+
+  // ── 衝突：歩行中の者は互いに反転
+  const d = Math.abs(P.x - C.x);
+  if(d < RULES.bodyGap){
+    const s = Math.sign(P.x - C.x) || 1;
+    if(P.state==="walk") P.dir = s;
+    if(C.state==="walk") C.dir = -s;
+    P.x += s*1.6; C.x -= s*1.6;
+  }
+
+  // ── 判定
+  resolve(P, C); resolve(C, P);
+
+  // ── 決着
+  if(P.hp<=0 || C.hp<=0 || timeLeft<=0) finish();
+}
+
+function resolve(a, b){
+  if(a.state!=="active" || a.hitDone) return;
+  const dist = Math.abs(a.x-b.x);
+  if(dist > a.s.reach || !a.facing(b)) return;
+  a.hitDone = true;
+  const kb = Math.sign(b.x-a.x)*RULES.knockback;
+
+  if(b.state==="guard"){
+    if(b.t <= b.s.parryWindow){                     // ジャスト防御
+      a.state="stun"; a.t=0; a.swing=0;
+      if(b.s.reflect){ a.takeHit(b.s.reflect); say(`${b.s.name} 舞い返し！ ${b.s.reflect}反射`); }
+      else if(b.s.parryRefund){ b.atk = 1; say(`${b.s.name} 香気斬り！ 攻撃ゲージ全快`); }
+      else say(`ジャスト防御！ ${a.s.name} 硬直`);
+      b.flash = .6;
+    } else {                                        // 通常ガード（削りは通る）
+      const chip = Math.min(a.s.dmg*RULES.blockChip, RULES.chipCap);
+      b.takeHit(chip); b.x = clampX(b.x+kb*0.5);
+      say(`ガード ${chip.toFixed(1)} 削り`);
+    }
+    return;
+  }
+  b.takeHit(a.s.dmg); b.state="hurt"; b.t=0; b.x = clampX(b.x+kb);
+  if(a.s.poison){ b.poison = a.s.poison.dur; b.poisonDps = a.s.poison.dps;
+    say(`${a.s.skill} 命中 ${a.s.dmg} + 猛毒`); }
+  else say(`${a.s.skill} 命中 ${a.s.dmg}`);
+}
+const clampX = x => Math.max(RULES.wallL, Math.min(RULES.wallR, x));
+function say(t){ $("log").textContent = t; logT = 1.6; }
+
+/* ---------- CPU ---------- */
+function cpuThink(dt){
+  cpuTimer -= dt;
+  if(C.state!=="walk") return;
+  if(cpuTimer>0) return;
+  cpuTimer = RULES.cpuReact*(0.7+Math.random()*0.6);
+
+  const dist = Math.abs(P.x-C.x);
+  const closing = C.facing(P);
+
+  // 相手の振りかぶりを見てから防御
+  if(P.state==="windup" && C.grd>=1 && dist < P.s.reach+60){
+    const remain = P.s.windup - P.t;
+    if(remain < C.s.parryWindow*0.9 + 0.06 && Math.random() < 0.72){ C.tryGuard(); return; }
+  }
+  // 間合いに入る時刻を予測して振る
+  if(C.atk>=1 && closing){
+    const rel = P.state==="walk" && !P.facing(C) ? C.s.speed - P.s.speed : C.s.speed + P.s.speed;
+    const tta = (dist - C.s.reach*0.82) / Math.max(20, rel);
+    if(tta <= C.s.windup + 0.05 && tta > -0.10) C.tryAttack();
+  }
+}
+
+/* ---------- 描画 ---------- */
+function render(){
+  const W=RULES.arenaW, H=RULES.arenaH, F=RULES.floorY;
+  g.clearRect(0,0,W,H);
+  g.fillStyle="#282433"; g.fillRect(0,0,W,H);
+
+  // 背景：胞子紋の同心円
+  g.save(); g.globalAlpha=.30; g.strokeStyle="#332E40"; g.lineWidth=1;
+  for(let r=30;r<300;r+=26){ g.beginPath(); g.arc(W/2,F,r,Math.PI,0); g.stroke(); }
+  g.restore();
+
+  // 床
+  g.strokeStyle="#4A4356"; g.lineWidth=1;
+  g.beginPath(); g.moveTo(0,F+.5); g.lineTo(W,F+.5); g.stroke();
+  g.fillStyle="#211E29"; g.fillRect(0,F+1,W,H-F);
+  // 壁の目盛
+  g.strokeStyle="#3A3547";
+  [RULES.wallL,RULES.wallR].forEach(x=>{ g.beginPath(); g.moveTo(x,F-70); g.lineTo(x,F); g.stroke(); });
+
+  // 間合いリング（プレイヤーが振れる距離）
+  if(P.ready.a && P.state==="walk"){
+    g.save(); g.globalAlpha=.22; g.strokeStyle="#B06A3B"; g.setLineDash([3,5]); g.lineWidth=1;
+    g.beginPath(); g.moveTo(P.x+P.dir*P.s.reach, F-58); g.lineTo(P.x+P.dir*P.s.reach, F); g.stroke();
+    g.restore();
+  }
+
+  [C,P].forEach(f=>{
+    if(f.flash>0){ g.save(); g.globalAlpha=Math.min(.55,f.flash);
+      g.fillStyle="#D08A92"; g.beginPath(); g.arc(f.x,F-30,34,0,7); g.fill(); g.restore(); }
+    if(f.state==="guard"){
+      const just = f.t<=f.s.parryWindow;
+      g.save(); g.strokeStyle= just? "#EDE4CC":"#7C8F4E";
+      g.lineWidth= just?2.5:1.5; g.globalAlpha= just?.95:.6;
+      g.beginPath(); g.arc(f.x, F-30, 32, f.dir>0? -1.4:1.75, f.dir>0? 1.4:4.55); g.stroke(); g.restore();
+    }
+    if(f.state==="stun"){ g.fillStyle="#D08A92"; g.font="600 13px "+getComputedStyle(document.body).fontFamily;
+      g.textAlign="center"; g.fillText("★", f.x, F-78); }
+    if(f.poison>0){ g.save(); g.globalAlpha=.5; g.fillStyle="#7C8F4E";
+      for(let i=0;i<3;i++){ const p=(performance.now()/700+i/3)%1;
+        g.beginPath(); g.arc(f.x-8+i*8, F-16-p*54, 2.2, 0, 7); g.fill(); } g.restore(); }
+    drawMushroom(g, f.s, f.x, F, 1, f.dir, {swing:f.swing});
+  });
+
+  // ラベル
+  g.font="500 9px ui-monospace,monospace"; g.textAlign="center";
+  g.fillStyle="#6E6880"; g.fillText("YOU", P.x, RULES.floorY+16);
+
+  // HUD
+  $("hpL").style.width = (P.hp/P.maxHp*100)+"%";
+  $("hpR").style.width = (C.hp/C.maxHp*100)+"%";
+  $("clock").textContent = Math.max(0,Math.ceil(timeLeft));
+  $("clock").classList.toggle("low", timeLeft<=15);
+  if(logT<=0) $("log").innerHTML="&nbsp;";
+  paintPad("padA", P.atk, "#B06A3B");
+  paintPad("padG", P.grd, "#7C8F4E");
+}
+function paintPad(id, pct, col){
+  const el=$(id), c=el.querySelector("canvas"), x=c.getContext("2d");
+  x.clearRect(0,0,84,84); drawSporeGauge(x,42,42,30,pct,col,"#3A3547");
+  el.classList.toggle("ready", pct>=1);
+}
+
+/* ---------- 決着 ---------- */
+function finish(){
+  running=false;
+  const pr=P.hp/P.maxHp, cr=C.hp/C.maxHp;
+  const win = C.hp<=0 && P.hp>0 ? 1 : P.hp<=0 && C.hp>0 ? -1 : (pr>cr?1:pr<cr?-1:0);
+  $("resultText").textContent = win>0? "勝　利" : win<0? "敗　北" : "引　分";
+  $("resultText").style.color = win>0? "var(--cream)" : win<0? "var(--pink)" : "var(--dim)";
+  $("resultSub").textContent =
+    `${P.s.name} ${Math.round(P.hp)}/${P.maxHp}  ―  ${C.s.name} ${Math.round(C.hp)}/${C.maxHp}` +
+    (timeLeft<=0 ? "  (時間切れ判定)" : "");
+  show("scEnd");
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SELECT UI
+   ══════════════════════════════════════════════════════════════════ */
+function buildRoster(){
+  const max = {speed:165, hp:132, dmg:23};
+  $("roster").innerHTML = "";
+  SPECIES.forEach((s,i)=>{
+    const el=document.createElement("div");
+    el.className="card"; el.tabIndex=0; el.setAttribute("role","option");
+    el.setAttribute("aria-selected", i===pick);
+    el.style.setProperty("--accent", s.accent);
+    el.innerHTML = `
+      <canvas width="112" height="112"></canvas>
+      <div>
+        <div class="nm">${s.name}<span class="rl">${s.role}</span></div>
+        <div class="sk">技: ${s.skill} — ${s.note}</div>
+        <div class="bars">
+          ${bar("速度", s.speed/max.speed)}
+          ${bar("体力", s.hp/max.hp)}
+          ${bar("攻撃", s.dmg/max.dmg)}
+          ${bar("攻ゲージ", 1 - (s.atkGauge-1.1)/2.1, s.atkGauge.toFixed(1)+"s")}
+        </div>
+      </div>`;
+    const cx = el.querySelector("canvas").getContext("2d");
+    cx.scale(2,2); drawMushroom(cx, s, 28, 52, 0.82, 1, {swing:0.2});
+    el.onclick = ()=>{ pick=i; refreshSel(); };
+    el.onkeydown = e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); pick=i; refreshSel(); } };
+    $("roster").appendChild(el);
+  });
+}
+const bar = (label, v, txt) =>
+  `<div class="bar">${txt?label+" "+txt:label}<i style="--w:${Math.max(6,Math.min(100,v*100))}%"></i></div>`;
+function refreshSel(){
+  [...$("roster").children].forEach((el,i)=> el.setAttribute("aria-selected", i===pick));
+}
+function show(id){ ["scSelect","scFight","scEnd"].forEach(s=> $(s).classList.toggle("hide", s!==id)); }
+
+/* ---------- 入力 ---------- */
+function attack(){ if(running && !P.tryAttack() && P.state==="walk") say("ゲージ不足"); }
+function guard(){ if(running && !P.tryGuard() && P.state==="walk") say("ゲージ不足"); }
+["pointerdown"].forEach(ev=>{
+  $("padA").addEventListener(ev, e=>{ e.preventDefault(); attack(); });
+  $("padG").addEventListener(ev, e=>{ e.preventDefault(); guard(); });
+});
+addEventListener("keydown", e=>{
+  if(e.repeat) return;
+  if(e.key==="f"||e.key==="F"||e.key==="ArrowLeft"){ e.preventDefault(); attack(); }
+  if(e.key==="j"||e.key==="J"||e.key==="ArrowRight"){ e.preventDefault(); guard(); }
+});
+$("startBtn").onclick = ()=>{ cpuPick = (pick + 1 + Math.floor(Math.random()*4)) % 5; begin(); };
+$("againBtn").onclick = ()=>{ cpuPick = (pick + 1 + Math.floor(Math.random()*4)) % 5; begin(); };
+$("backBtn").onclick  = ()=> show("scSelect");
+
+buildRoster();
+</script>
+</body>
+</html>
