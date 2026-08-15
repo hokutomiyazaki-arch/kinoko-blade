@@ -41,14 +41,14 @@ body{
 .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
 .roster{display:flex;flex-direction:column;gap:8px}
 .card{
-  display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:center;
+  display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:center;
   background:var(--ink-2);border:1px solid var(--ink-3);border-left:3px solid var(--accent,var(--dim));
   padding:10px 12px;cursor:pointer;transition:background .15s,transform .1s;
 }
 .card:hover,.card:focus-visible{background:var(--ink-3);outline:none}
 .card:active{transform:translateX(2px)}
 .card[aria-selected="true"]{background:var(--ink-3);border-color:var(--cream);border-left-color:var(--accent)}
-.card canvas{width:56px;height:56px;display:block}
+.card canvas{width:64px;height:64px;display:block}
 .card .nm{font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:.05em}
 .card .rl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--accent,var(--dim));margin-left:8px}
 .card .sk{font-size:11px;color:var(--dim);margin-top:2px;line-height:1.5}
@@ -163,7 +163,8 @@ const SPECIES = [
     atkGauge:2.0, guardGauge:1.2,
     windup:0.26, active:0.14, recover:0.32,
     guardTime:0.70, parryWindow:0.20,
-    cap:"#7A5236", gill:"#E4D7B8", accent:"#B08050",
+    art:{ style:"spot", body:"#9BCDEE", cap:"#6FB4E3", pom:"#B7A5E8", trim:"#FAF3E2", weapon:"#B7A5E8" },
+    accent:"#8FC8EC",
   },
   {
     id:"enoki", name:"エノキ", role:"RUSH", skill:"束ね突き",
@@ -172,7 +173,8 @@ const SPECIES = [
     atkGauge:1.1, guardGauge:0.9,
     windup:0.14, active:0.10, recover:0.20,
     guardTime:0.52, parryWindow:0.19,
-    cap:"#EFE6CE", gill:"#CFC3A4", accent:"#DCCFA8",
+    art:{ style:"plain", body:"#EFE9D8", cap:"#FBF7EC", pom:"#DCD5C2", trim:"#D8D0BC", weapon:"#D3CBB6" },
+    accent:"#E4DCC6",
   },
   {
     id:"benitengu", name:"ベニテングタケ", role:"VENOM", skill:"紅の一閃",
@@ -182,7 +184,8 @@ const SPECIES = [
     windup:0.46, active:0.18, recover:0.56,
     guardTime:0.62, parryWindow:0.14,
     poison:{dps:1.5, dur:6},
-    cap:"#C0392B", gill:"#F2E6DC", accent:"#D0554A",
+    art:{ style:"spot", body:"#F6B3C6", cap:"#EF93AC", pom:"#F2A0B7", trim:"#FBF1D8", weapon:"#EF93AC" },
+    accent:"#F4A8BE",
   },
   {
     id:"maitake", name:"マイタケ", role:"WALL", skill:"舞い返し",
@@ -192,7 +195,8 @@ const SPECIES = [
     windup:0.32, active:0.15, recover:0.40,
     guardTime:0.90, parryWindow:0.22,
     reflect:6,
-    cap:"#6B5B45", gill:"#CFC0A2", accent:"#8E7B5E",
+    art:{ style:"visor", body:"#AFD883", cap:"#96C95F", pom:"#96C95F", trim:"#FAF6E6", weapon:"#96C95F" },
+    accent:"#A9D479",
   },
   {
     id:"matsutake", name:"マツタケ", role:"TECHNIC", skill:"香気斬り",
@@ -202,7 +206,8 @@ const SPECIES = [
     windup:0.20, active:0.12, recover:0.30,
     guardTime:0.56, parryWindow:0.24,
     parryRefund:true,
-    cap:"#9C8156", gill:"#EDE0C4", accent:"#BFA070",
+    art:{ style:"stripe", body:"#C3B2EF", cap:"#AE99E7", pom:"#AE99E7", trim:"#FAF5E8", weapon:"#AE99E7" },
+    accent:"#BCA9EC",
   },
 ];
 
@@ -220,57 +225,196 @@ const RULES = {
 
 /* ══════════════════════════════════════════════════════════════════
    きのこの描画
+   ------------------------------------------------------------------
+   設定画（丸い体・こげ茶の太い輪郭・怒り眉・叫び口・頬の赤み・
+   ぽんぽん付きの傘・剣）をベクタで再現している。画像を読み込まないので
+   「依存ゼロの単体HTML」のままで、傘の色と柄だけが種ごとに変わる。
+     style:"spot"   … 水玉の傘（シイタケ・ベニテングタケ）
+     style:"stripe" … 縦縞の傘（マツタケ）
+     style:"visor"  … つば付きの帽子型（マイタケ）
+     style:"plain"  … 無地（エノキ）
    ══════════════════════════════════════════════════════════════════ */
+const ART = {
+  line:"#4A3226",              // こげ茶の輪郭。全パーツ共通
+  face:"#F8EDCB", faceLo:"#EFDFB4",
+  eye:"#33241D", blush:"#EFA49E", mouth:"#E4696D", tooth:"#FFFFFF",
+  blade:"#E9E9EF", bladeHi:"#FCFCFE", bladeLo:"#C6C6D0",
+};
+const BODY_R = 28, BODY_Y = -47, CAP_EDGE = -45, K = 0.78;
+
+function ink(g, w){ g.strokeStyle=ART.line; g.lineWidth=w; g.lineJoin="round"; g.lineCap="round"; }
+function paint(g, fill, w){ g.fillStyle=fill; g.fill(); ink(g,w||3); g.stroke(); }
+
 function drawMushroom(g, s, x, y, scale, dir, pose){
   // y = 足元。dir: 1=右向き -1=左向き
-  g.save(); g.translate(x,y); g.scale(dir*scale, scale);
-  const tall = s.id==="enoki";
-  const stipeH = tall? 46 : 34, stipeW = tall? 8 : 13;
-  const capW = tall? 20 : (s.id==="benitengu"? 42 : 36);
-  const capH = tall? 12 : (s.id==="maitake"? 16 : 22);
+  const A = s.art;
+  g.save(); g.translate(x,y); g.scale(dir*scale*K, scale*K);
 
   // 影
-  g.fillStyle="rgba(0,0,0,.30)"; g.beginPath();
-  g.ellipse(0,1,capW*.62,4,0,0,7); g.fill();
+  g.save(); g.globalAlpha=.26; g.fillStyle="#000";
+  g.beginPath(); g.ellipse(0,0,30,5,0,0,7); g.fill(); g.restore();
 
-  // 剣（前方）
-  const sw = pose.swing; // -1..1 振り角
-  g.save(); g.translate(stipeW*.5+2, -stipeH*0.62); g.rotate(-0.9 + sw*1.9);
-  g.strokeStyle="#7E7688"; g.lineWidth=3.4; g.lineCap="round";
-  g.beginPath(); g.moveTo(0,0); g.lineTo(30,0); g.stroke();
-  g.strokeStyle=s.gill; g.lineWidth=1; g.beginPath(); g.moveTo(4,0); g.lineTo(29,0); g.stroke();
-  g.strokeStyle="#4A4456"; g.lineWidth=6; g.beginPath(); g.moveTo(-4,0); g.lineTo(0,0); g.stroke();
+  if(pose.ko){ drawKO(g, A); g.restore(); return; }
+
+  // 脚（体の後ろ）
+  [[-13,-9,-0.26],[13,-9,0.26]].forEach(([lx,ly,rot])=>{
+    g.save(); g.translate(lx,ly); g.rotate(rot);
+    g.beginPath(); g.ellipse(0,0,9,10.5,0,0,7); paint(g,A.body,3); g.restore();
+  });
+
+  // 奥の腕
+  g.beginPath(); g.ellipse(-31,-38,8.5,8,0,0,7); paint(g,A.body,3);
+
+  // つば（マイタケの帽子。後方へ張り出す）
+  if(A.style==="visor"){
+    g.save(); g.translate(-28,-50); g.rotate(-0.14);
+    g.beginPath(); g.ellipse(0,0,17,8,0,0,7); paint(g,A.cap,3); g.restore();
+  }
+
+  // 体（顔のベース）
+  g.beginPath(); g.ellipse(0,BODY_Y,BODY_R,BODY_R,0,0,7); paint(g,ART.face,3.2);
+  // 下ぶくれの陰
+  g.save(); g.clip();
+  g.globalAlpha=.35; g.fillStyle=ART.faceLo;
+  g.beginPath(); g.ellipse(2,-22,26,14,0,0,7); g.fill(); g.restore();
+
+  drawCap(g, A);
+  drawFace(g, pose);
+
+  // 前の腕＋剣
+  g.save(); g.translate(31,-38);
+  g.beginPath(); g.ellipse(0,0,8.5,8,0,0,7); paint(g,A.body,3);
+  drawSword(g, A.weapon, pose.swing);
   g.restore();
 
-  // 柄
-  g.fillStyle=s.gill; g.beginPath();
-  g.roundRect(-stipeW/2, -stipeH, stipeW, stipeH, 3); g.fill();
-  g.strokeStyle="rgba(0,0,0,.22)"; g.lineWidth=1; g.stroke();
+  g.restore();
+}
 
-  // 傘
-  g.fillStyle=s.cap;
-  if(s.id==="maitake"){ // 舞茸=重なった小傘
-    for(let i=-1;i<=1;i++){ g.beginPath();
-      g.ellipse(i*13, -stipeH-4+Math.abs(i)*3, 14, capH*.8, i*0.25, Math.PI, 0); g.fill(); }
+/* ---------- 傘（帽子） ---------- */
+function drawCap(g, A){
+  g.save();
+  g.beginPath(); g.ellipse(0,BODY_Y,BODY_R,BODY_R,0,0,7); g.clip();
+  const top = BODY_Y-BODY_R-2;
+
+  if(A.style==="stripe" || A.style==="visor"){
+    g.fillStyle=A.trim; g.fillRect(-BODY_R,top,BODY_R*2,CAP_EDGE-top);
+    g.fillStyle=A.cap;
+    (A.style==="stripe" ? [[-30,12],[-6,12],[18,12]] : [[-6,15]]).forEach(([sx,w])=>
+      g.fillRect(sx,top,w,CAP_EDGE-top));
+    ink(g,1.8);
+    (A.style==="stripe" ? [-18,-6,6,18] : [-6,9]).forEach(sx=>{
+      g.beginPath(); g.moveTo(sx,top); g.lineTo(sx,CAP_EDGE-7); g.stroke(); });
+    // 帽子のバンド
+    g.fillStyle=A.cap; g.fillRect(-BODY_R,CAP_EDGE-8,BODY_R*2,8);
+    ink(g,1.8); g.beginPath();
+    g.moveTo(-BODY_R,CAP_EDGE-8); g.lineTo(BODY_R,CAP_EDGE-8); g.stroke();
   } else {
-    g.beginPath(); g.ellipse(0, -stipeH, capW, capH, 0, Math.PI, 0); g.fill();
-    g.beginPath(); g.ellipse(0, -stipeH, capW, capH*.24, 0, 0, Math.PI); g.fill();
+    g.fillStyle=A.cap; g.fillRect(-BODY_R,top,BODY_R*2,CAP_EDGE-top);
+    if(A.style==="spot"){
+      [[-16,-63,5.4,4.9],[3,-70,5.8,5.2],[18,-60,5.2,4.7],[-4,-53,4.6,4.1]]
+        .forEach(([sx,sy,rx,ry])=>{
+          g.beginPath(); g.ellipse(sx,sy,rx,ry,0,0,7); paint(g,A.trim,2.2); });
+    } else { // plain — 傘のふちだけ濃く
+      g.fillStyle=A.trim; g.fillRect(-BODY_R,CAP_EDGE-7,BODY_R*2,7);
+      ink(g,1.8); g.beginPath();
+      g.moveTo(-BODY_R,CAP_EDGE-7); g.lineTo(BODY_R,CAP_EDGE-7); g.stroke();
+    }
   }
-  // 傘のディテール
-  if(s.id==="benitengu"){ g.fillStyle="#F4ECE2";
-    [[-24,-8],[-8,-14],[10,-13],[26,-6],[0,-4]].forEach(([a,b])=>{
-      g.beginPath(); g.arc(a, -stipeH+b, 3.1, 0, 7); g.fill(); }); }
-  if(s.id==="shiitake"){ g.strokeStyle="rgba(237,228,204,.45)"; g.lineWidth=1.2;
-    for(let i=-2;i<=2;i++){ g.beginPath();
-      g.moveTo(i*11,-stipeH-capH*.6); g.lineTo(i*13,-stipeH-2); g.stroke(); } }
-  if(s.id==="matsutake"){ g.strokeStyle="rgba(30,27,36,.35)"; g.lineWidth=1.4;
-    for(let i=-2;i<=2;i++){ g.beginPath();
-      g.moveTo(i*9,-stipeH-capH*.75); g.lineTo(i*10,-stipeH-3); g.stroke(); } }
+  g.restore();
+
+  // 傘のふちの線
+  const hw = BODY_R*Math.sqrt(1-Math.pow((CAP_EDGE-BODY_Y)/BODY_R,2));
+  ink(g,3); g.beginPath(); g.moveTo(-hw,CAP_EDGE); g.lineTo(hw,CAP_EDGE); g.stroke();
+  // 体の輪郭を描き直して傘の塗りを閉じる
+  g.beginPath(); g.ellipse(0,BODY_Y,BODY_R,BODY_R,0,0,7); ink(g,3.2); g.stroke();
+  // ぽんぽん
+  g.beginPath(); g.arc(0,-79,7.5,0,7); paint(g,A.pom,3);
+}
+
+/* ---------- 顔 ---------- */
+function drawFace(g, pose){
+  // 怒り眉（内側が下がる）
+  ink(g,4.6);
+  g.beginPath(); g.moveTo(-19,-42); g.lineTo(-7,-38.8);
+  g.moveTo(7,-38.8); g.lineTo(19,-42); g.stroke();
+
+  // 頬
+  g.save(); g.globalAlpha=.92; g.fillStyle=ART.blush;
+  g.beginPath(); g.ellipse(-17.5,-25.5,5.4,4.2,0,0,7); g.fill();
+  g.beginPath(); g.ellipse(16.5,-25.5,5.4,4.2,0,0,7); g.fill(); g.restore();
 
   // 目
-  g.fillStyle="#1E1B24";
-  const ey = -stipeH+11;
-  g.beginPath(); g.arc(-4, ey, 1.8, 0, 7); g.arc(5, ey, 1.8, 0, 7); g.fill();
+  [-9,9].forEach(ex=>{
+    g.fillStyle=ART.eye; g.beginPath(); g.ellipse(ex,-32.5,4,4.6,0,0,7); g.fill();
+    g.fillStyle="#fff"; g.beginPath(); g.arc(ex+1.3,-34.2,1.5,0,7); g.fill();
+  });
+
+  // 叫んでいる口（上下の歯＋赤い口内）
+  const mw = pose.shout? 8 : 6.8, mh = pose.shout? 11 : 9.5;
+  const my = -24-mh/2;
+  g.save();
+  g.beginPath(); g.roundRect(-mw,my,mw*2,mh,3); g.clip();
+  g.fillStyle=ART.tooth; g.fillRect(-mw,my,mw*2,mh);
+  g.fillStyle=ART.mouth; g.fillRect(-mw,my+mh*0.28,mw*2,mh*0.42);
+  g.restore();
+  g.beginPath(); g.roundRect(-mw,my,mw*2,mh,3); ink(g,2.6); g.stroke();
+  ink(g,1.6);
+  g.beginPath();
+  g.moveTo(-mw,my+mh*0.28); g.lineTo(mw,my+mh*0.28);
+  g.moveTo(-mw,my+mh*0.70); g.lineTo(mw,my+mh*0.70); g.stroke();
+}
+
+/* ---------- 剣 ---------- */
+function drawSword(g, col, swing){
+  g.save(); g.rotate(-1.05 + swing*1.9);
+  // 刀身
+  g.beginPath();
+  g.moveTo(7,-5.5); g.lineTo(38,-5.5); g.lineTo(47,0); g.lineTo(38,5.5); g.lineTo(7,5.5); g.closePath();
+  paint(g,ART.blade,2.8);
+  g.strokeStyle=ART.bladeHi; g.lineWidth=2.2; g.lineCap="round";
+  g.beginPath(); g.moveTo(11,-2); g.lineTo(37,-2); g.stroke();
+  g.strokeStyle=ART.bladeLo; g.lineWidth=1.4;
+  g.beginPath(); g.moveTo(11,3); g.lineTo(36,3); g.stroke();
+  // 鍔・柄・柄頭
+  g.beginPath(); g.roundRect(0,-11,7,22,2.5); paint(g,col,2.8);
+  g.beginPath(); g.roundRect(-12,-4,13,8,3); paint(g,col,2.8);
+  g.beginPath(); g.arc(-14,0,5,0,7); paint(g,col,2.8);
+  g.restore();
+}
+
+/* ---------- 撃沈（KO） ---------- */
+function drawKO(g, A){
+  g.save(); g.translate(0,-26); g.scale(1,0.82);
+  // 下へ広がる裂片
+  [-2.05,-1.3,-0.45,0.45,1.3,2.05].forEach(a=>{
+    g.save(); g.rotate(a);
+    g.beginPath();
+    g.moveTo(-6,4);
+    g.quadraticCurveTo(-12,32,-13,52);
+    g.lineTo(9,54);
+    g.quadraticCurveTo(9,30,7,4);
+    g.closePath();
+    paint(g,A.body,3); g.restore();
+  });
+  // ぎざぎざの冠
+  g.beginPath();
+  g.moveTo(-26,-4); g.lineTo(-21,-29); g.lineTo(-10,-15); g.lineTo(-1,-35);
+  g.lineTo(8,-15); g.lineTo(18,-29); g.lineTo(23,-6); g.closePath();
+  paint(g,A.body,3);
+  // 顔
+  g.beginPath(); g.ellipse(0,0,22,20,0,0,7); paint(g,ART.face,3);
+  // ×目
+  ink(g,3);
+  [-9,9].forEach(ex=>{ g.beginPath();
+    g.moveTo(ex-4.5,-7.5); g.lineTo(ex+4.5,-1.5);
+    g.moveTo(ex+4.5,-7.5); g.lineTo(ex-4.5,-1.5); g.stroke(); });
+  // 気の抜けた口
+  ink(g,2.2); g.beginPath();
+  g.moveTo(-6,6); g.quadraticCurveTo(0,11,6,6); g.stroke();
+  // 頬
+  g.save(); g.globalAlpha=.9; g.fillStyle=ART.blush;
+  g.beginPath(); g.ellipse(-15,4,5.5,4.2,0,0,7); g.fill();
+  g.beginPath(); g.ellipse(15,4,5.5,4.2,0,0,7); g.fill(); g.restore();
   g.restore();
 }
 
@@ -481,7 +625,10 @@ function render(){
     if(f.poison>0){ g.save(); g.globalAlpha=.5; g.fillStyle="#7C8F4E";
       for(let i=0;i<3;i++){ const p=(performance.now()/700+i/3)%1;
         g.beginPath(); g.arc(f.x-8+i*8, F-16-p*54, 2.2, 0, 7); g.fill(); } g.restore(); }
-    drawMushroom(g, f.s, f.x, F, 1, f.dir, {swing:f.swing});
+    drawMushroom(g, f.s, f.x, F, 1, f.dir, {
+      swing:f.swing, ko:f.hp<=0,
+      shout:f.state==="windup"||f.state==="active"||f.state==="hurt",
+    });
   });
 
   // ラベル
@@ -505,7 +652,14 @@ function paintPad(id, pct, col){
 
 /* ---------- 決着 ---------- */
 function finish(){
+  if(!running) return;
   running=false;
+  // 撃沈の姿勢を1フレーム描いてから結果へ（時間切れは待たせない）
+  const ko = P.hp<=0 || C.hp<=0;
+  render();
+  setTimeout(showResult, ko? 1100 : 260);
+}
+function showResult(){
   const pr=P.hp/P.maxHp, cr=C.hp/C.maxHp;
   const win = C.hp<=0 && P.hp>0 ? 1 : P.hp<=0 && C.hp>0 ? -1 : (pr>cr?1:pr<cr?-1:0);
   $("resultText").textContent = win>0? "勝　利" : win<0? "敗　北" : "引　分";
@@ -528,7 +682,7 @@ function buildRoster(){
     el.setAttribute("aria-selected", i===pick);
     el.style.setProperty("--accent", s.accent);
     el.innerHTML = `
-      <canvas width="112" height="112"></canvas>
+      <canvas width="128" height="128"></canvas>
       <div>
         <div class="nm">${s.name}<span class="rl">${s.role}</span></div>
         <div class="sk">技: ${s.skill} — ${s.note}</div>
@@ -540,7 +694,7 @@ function buildRoster(){
         </div>
       </div>`;
     const cx = el.querySelector("canvas").getContext("2d");
-    cx.scale(2,2); drawMushroom(cx, s, 28, 52, 0.82, 1, {swing:0.2});
+    cx.scale(2,2); drawMushroom(cx, s, 29, 60, 0.85, 1, {swing:0.15});
     el.onclick = ()=>{ pick=i; refreshSel(); };
     el.onkeydown = e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); pick=i; refreshSel(); } };
     $("roster").appendChild(el);
