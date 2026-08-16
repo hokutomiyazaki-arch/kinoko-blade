@@ -121,21 +121,37 @@ body{
 
 /* ---- ボス戦：味方ごとの操作パネル ---- */
 .panels{display:flex;flex-direction:column;gap:5px;flex:0 0 auto}
-.panel{border:1px solid var(--ink-3);background:var(--ink-2);padding:4px 5px}
-.panel.act{border-color:var(--cream)}
-.panel.ko{opacity:.4}
+.panel{
+  border:2px solid color-mix(in srgb,var(--pc) 55%,var(--ink-3));
+  background:color-mix(in srgb,var(--pc) 13%,var(--ink-2));
+  padding:4px 5px;transition:background .12s,border-color .12s,opacity .12s;
+  opacity:.72;
+}
+/* 操作中の1体は色を濃くして、名前の帯も塗りつぶす */
+.panel.act{
+  border-color:var(--pc);opacity:1;
+  background:color-mix(in srgb,var(--pc) 34%,var(--ink-2));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--pc) 45%,transparent);
+}
+.phead .now{
+  font-family:var(--mono);font-size:8px;letter-spacing:.1em;color:var(--ink);
+  background:var(--pc);padding:2px 5px;display:none;
+}
+.panel.act .phead .now{display:inline-block}
+.panel.ko{opacity:.38;filter:grayscale(1)}
 .phead{display:flex;align-items:center;gap:6px;margin-bottom:3px}
-.phead .n{font-family:var(--mono);font-size:9px;color:var(--ink);background:var(--dim);
-  width:14px;height:14px;line-height:14px;text-align:center;font-weight:700}
-.panel.act .phead .n{background:var(--cream)}
-.phead .nm2{font-family:var(--display);font-size:12px;letter-spacing:.04em}
-.phead .hp2{flex:1;height:5px;background:var(--ink-3);position:relative;overflow:hidden}
-.phead .hp2 b{position:absolute;inset:0 auto 0 0;background:var(--cream);transition:width .18s}
+.phead .n{font-family:var(--mono);font-size:9px;color:var(--ink);background:var(--pc);
+  width:15px;height:15px;line-height:15px;text-align:center;font-weight:700}
+.panel.act .phead .n{outline:2px solid var(--cream)}
+.phead .nm2{font-family:var(--display);font-size:12px;letter-spacing:.04em;color:var(--pc)}
+.phead .hp2{flex:1;height:6px;background:rgba(0,0,0,.35);position:relative;overflow:hidden}
+.phead .hp2 b{position:absolute;inset:0 auto 0 0;background:var(--pc);transition:width .18s}
 .prow{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .mini{
   position:relative;overflow:hidden;cursor:pointer;padding:7px 2px 8px;
-  border:1px solid var(--ink-3);background:var(--ink);color:var(--cream);
-  font-family:var(--display);font-size:15px;letter-spacing:.1em;
+  border:1px solid color-mix(in srgb,var(--pc) 35%,var(--ink-3));
+  background:color-mix(in srgb,var(--pc) 10%,var(--ink));
+  color:var(--cream);font-family:var(--display);font-size:15px;letter-spacing:.1em;
 }
 .mini i{position:absolute;left:0;bottom:0;height:3px;background:var(--c);width:0;transition:width .08s linear}
 .mini.ready{border-color:var(--c);background:linear-gradient(0deg,color-mix(in srgb,var(--c) 20%,var(--ink)),var(--ink))}
@@ -456,6 +472,28 @@ function bossFor(lv){
   return b;
 }
 const partySize = lv => (lv >= BOSS_EVERY*2 ? 3 : 2);
+
+/* ══════════════════════════════════════════════════════════════════
+   背景 — レベルごとに変わる（6面で一巡）
+   ------------------------------------------------------------------
+   胞子紋の同心円という骨格は保ったまま、空・輪・地面・漂う胞子の色だけ
+   差し替える。地形は変えない（壁の間隔＝バランスに触らないため）。
+   ══════════════════════════════════════════════════════════════════ */
+const STAGES = [
+  { name:"胞子紋の間", sky:["#2E2939","#241F2D"], ring:"#3A3448", floor:"#4A4356",
+    ground:"#211E29", mote:"#6E6880" },
+  { name:"苔の洞",     sky:["#20302A","#17231F"], ring:"#2C4239", floor:"#3E5A4C",
+    ground:"#14201B", mote:"#7C8F4E" },
+  { name:"紅殻の丘",   sky:["#33212A","#261820"], ring:"#482E3A", floor:"#5E3B49",
+    ground:"#20141A", mote:"#D08A92" },
+  { name:"藍の霧",     sky:["#1F2A38","#16202B","fog"], ring:"#2E3E52", floor:"#3F5670",
+    ground:"#131B24", mote:"#8FC8EC" },
+  { name:"黄土の窖",   sky:["#302820","#241E17"], ring:"#463A2A", floor:"#5E4E36",
+    ground:"#1E1913", mote:"#C6A24A" },
+  { name:"白菌の床",   sky:["#2B2D36","#212329"], ring:"#3C3F4A", floor:"#565B69",
+    ground:"#1B1D22", mote:"#EDE4CC" },
+];
+const stageFor = lv => STAGES[((lv-1) % STAGES.length + STAGES.length) % STAGES.length];
 
 /* ボスの当たり判定は体の大きさに合わせて広い */
 const BOSS_BOX = { halfW: CHAR_W, top: -CHAR_H*3, bot: -4 };
@@ -1183,6 +1221,7 @@ const $ = id => document.getElementById(id);
 const cv = $("stage"), g = cv.getContext("2d");
 let P, C, timeLeft, running=false, last=0, logT=0, cpuTimer=0, cpuIntent=null;
 let party = [], foes = [], bossFight = false, actIdx = 0;
+let stage = STAGES[0];
 let pick = 0, cpuPick = 1, lastSec = 0, selSlot = 0, resultShown = false;
 let cpuProf = cpuProfile(SAVE.level);
 
@@ -1198,6 +1237,7 @@ const alive = arr => arr.filter(f=>!f.dead);
 function begin(){
   const lv = SAVE.level;
   bossFight = isBossLevel(lv);
+  stage = stageFor(lv);
   cpuProf = cpuProfile(lv);
   shots = []; bolts = []; sparks = []; selSlot = 0; resultShown = false; actIdx = 0;
   party = []; foes = [];
@@ -1231,7 +1271,7 @@ function begin(){
   $("nmR").innerHTML = `<em>Lv.${lv}${bossFight?" BOSS":""}</em>` + C.s.name;
   renderBag();
   show("scFight"); fitStage();
-  say(bossFight? `${C.s.name} 出現` : "交錯を待て");
+  say(bossFight? `${stage.name} ／ ${C.s.name} 出現` : `${stage.name} ／ 交錯を待て`);
   lastSec = RULES.roundTime; BGM.setMode(bossFight? "boss" : "fight"); BGM.start();
   last = performance.now(); requestAnimationFrame(loop);
 }
@@ -1464,20 +1504,32 @@ function render(){
   g.setTransform(1,0,0,1,0,0);
   g.fillStyle="#211E29"; g.fillRect(0,0,cv.width,cv.height);
   g.setTransform(view.scale,0,0,view.scale,view.ox,view.oy);
-  g.fillStyle="#282433"; g.fillRect(0,0,W,H);
+  const sky = g.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0, stage.sky[0]); sky.addColorStop(1, stage.sky[1]);
+  g.fillStyle = sky; g.fillRect(0,0,W,H);
 
   // 背景：胞子紋の同心円。画面が縦に伸びた分だけ輪も増やして空白を埋める
-  g.save(); g.globalAlpha=.30; g.strokeStyle="#332E40"; g.lineWidth=1;
+  g.save(); g.globalAlpha=.34; g.strokeStyle=stage.ring; g.lineWidth=1;
   const rMax = Math.max(300, H*1.4);
   for(let r=30;r<rMax;r+=24){ g.beginPath(); g.arc(W/2,F,r,Math.PI,0); g.stroke(); }
   g.restore();
 
+  // 漂う胞子（面ごとに色が違う）
+  g.save(); g.fillStyle=stage.mote; g.globalAlpha=.22;
+  const now = performance.now()/1000;
+  for(let i=0;i<14;i++){
+    const sx = ((i*97 + now*(6+i%5)*2) % (W+40)) - 20;
+    const sy = F - ((i*53 + now*(9+(i%4)*4)) % (H*0.9)) - 10;
+    g.beginPath(); g.arc(sx, sy, 1.4+(i%3)*0.7, 0, 7); g.fill();
+  }
+  g.restore();
+
   // 床
-  g.strokeStyle="#4A4356"; g.lineWidth=1;
+  g.strokeStyle=stage.floor; g.lineWidth=1.4;
   g.beginPath(); g.moveTo(0,F+.5); g.lineTo(W,F+.5); g.stroke();
-  g.fillStyle="#211E29"; g.fillRect(0,F+1,W,H-F);
+  g.fillStyle=stage.ground; g.fillRect(0,F+1,W,H-F);
   // 壁の目盛
-  g.strokeStyle="#3A3547";
+  g.strokeStyle=stage.ring;
   [RULES.wallL,RULES.wallR].forEach(x=>{ g.beginPath(); g.moveTo(x,F-74); g.lineTo(x,F); g.stroke(); });
 
   // 間合いリング（プレイヤーが振れる距離）
@@ -1558,8 +1610,27 @@ function render(){
   g.font="500 9px ui-monospace,monospace"; g.textAlign="center";
   party.forEach((m,i)=>{
     if(m.dead) return;
-    g.fillStyle = (bossFight && i===actIdx) ? "#EDE4CC" : "#6E6880";
-    g.fillText(bossFight? String(i+1) : "YOU", m.x, RULES.floorY+15);
+    if(bossFight){
+      // パネルと同じ色の輪を足元に置く。操作中の1体は輪を濃くして矢印を出す
+      const col = m.s.accent, act = (i===actIdx);
+      g.save();
+      g.globalAlpha = act? .95 : .45;
+      g.strokeStyle = col; g.lineWidth = act? 3 : 1.6;
+      g.beginPath(); g.ellipse(m.x, F+3, act? 26 : 21, act? 8 : 6.5, 0, 0, 7); g.stroke();
+      if(act){
+        const bob = Math.sin(performance.now()/220)*3;
+        g.fillStyle = col;
+        g.beginPath();
+        g.moveTo(m.x, F-CHAR_H-14+bob); g.lineTo(m.x-8, F-CHAR_H-26+bob); g.lineTo(m.x+8, F-CHAR_H-26+bob);
+        g.closePath(); g.fill();
+      }
+      g.restore();
+      g.fillStyle = col; g.font = (act?"700 11px ":"500 10px ")+"ui-monospace,monospace";
+      g.fillText(String(i+1), m.x, RULES.floorY+16);
+    } else {
+      g.fillStyle = "#6E6880";
+      g.fillText("YOU", m.x, RULES.floorY+15);
+    }
   });
 
   // HUD
@@ -1653,10 +1724,12 @@ function buildPanels(){
   party.forEach((m,i)=>{
     const el = document.createElement("div");
     el.className = "panel";
+    el.style.setProperty("--pc", m.s.accent);      // 帯・枠・ボタンすべてこの色になる
     el.innerHTML = `
       <div class="phead">
         <span class="n">${i+1}</span>
-        <span class="nm2" style="color:${m.s.accent}">${m.s.name}</span>
+        <span class="nm2">${m.s.name}</span>
+        <span class="now">操作中</span>
         <span class="hp2"><b></b></span>
       </div>
       <div class="prow">
@@ -1942,6 +2015,7 @@ function renderStatus(){
   const bossNext = isBossLevel(SAVE.level);
   $("status").innerHTML =
     `敵のレベル <b>${SAVE.level}</b>　勝つと上がる` +
+    `<span style="margin-left:6px">舞台 ${stageFor(SAVE.level).name}</span>` +
     (bossNext ? `<span style="color:var(--pink)">▲ ボス戦（味方${partySize(SAVE.level)}体）</span>` : "") +
     `<span style="margin-left:6px">スペシャル ${slots} ${SAVE.bag.length}/${BAG_MAX}</span>` +
     `<button class="reset" id="resetBtn">記録を消す</button>`;
