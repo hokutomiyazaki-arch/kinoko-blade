@@ -75,9 +75,9 @@ function ai(f,o,shots,pf){
       const tta=(Math.abs(sh.x-f.x)-R.hitHalfW)/Math.max(40,Math.abs(sh.vx));
       if(tta>=0&&(best===null||tta<best)) best=tta;
     }
-    if(best!==null&&best<Math.min(0.34,f.s.guardTime*0.55)&&rnd()<pf.pGuard){ f.grd=0;f.st="guard";f.t=0; return; }
+    if(best!==null&&best<Math.min(0.34,f.s.guardTime*0.55)&&rnd()<pf.pGuard&&facing(f,o)){ f.grd=0;f.st="guard";f.t=0; return; }
   }
-  if(o.st==="windup"&&f.grd>=1&&d<o.s.reach+60){
+  if(o.st==="windup"&&f.grd>=1&&d<o.s.reach+60&&facing(f,o)){   // 背中を向けていたら防げない
     if(o.s.windup-o.t < f.s.parryWindow*0.9+0.06 && rnd()<pf.guard){ f.grd=0;f.st="guard";f.t=0; return; }
   }
   if(f.sht>=1&&facing(f,o)){
