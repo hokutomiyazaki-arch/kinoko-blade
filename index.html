@@ -426,14 +426,17 @@ const isBossLevel = lv => lv % BOSS_EVERY === 0;
 const CHAR_W = 63, CHAR_H = 77;          // 通常キャラの見た目の大きさ（世界座標）
 
 const BOSSES = [
-  { id:"ooshiitake", name:"大椎茸", role:"BOSS", skill:"薙ぎ払い",
+  // 設定画どおり：赤い水玉の傘、たてがみ、笑顔、青緑の斧
+  { id:"onomaru", name:"斧丸", role:"BOSS", skill:"斧の一撃",
     hp:245, speed:46, dmg:16, reach:166,
     atkGauge:2.70, guardGauge:99, windup:0.72, active:0.22, recover:0.66,
-    guardTime:0.5, parryWindow:0.10,
+    guardTime:0.5, parryWindow:0.10, face:"smile",
     shot:{ name:"胞子の雨", kind:"lob", gauge:3.9, dmg:7, speed:120, up:170, n:3,
            windup:0.50, recover:0.52, r:12, life:3.6 },
-    art:{ style:"spot", body:"#7FB4D8", cap:"#4E7FA8", pom:"#B7A5E8", trim:"#FAF3E2", weapon:"#B7A5E8" },
-    accent:"#7FB4D8" },
+    art:{ style:"spot", body:"#E8232F", cap:"#E8232F", pom:"#E8232F", trim:"#FBF3DE",
+          weapon:"#3FC8C8", mane:"#E8232F", limb:"#FBF3DE",
+          axe:{ haft:"#7A4A2A", blade:"#3FC8C8", edge:"#FBF3DE", gem:"#E8232F" } },
+    accent:"#E8232F" },
 
   { id:"oobeni", name:"大紅天狗", role:"BOSS", skill:"紅の薙ぎ",
     hp:245, speed:48, dmg:17, reach:169,
@@ -441,8 +444,8 @@ const BOSSES = [
     guardTime:0.5, parryWindow:0.10, poison:{dps:1.6, dur:4},
     shot:{ name:"毒の雨", kind:"lob", gauge:3.7, dmg:7, speed:130, up:175, n:4,
            windup:0.46, recover:0.50, r:13, life:3.6, poison:{dps:1.0, dur:3} },
-    art:{ style:"spot", body:"#E8809A", cap:"#C4506E", pom:"#F2A0B7", trim:"#FBF1D8", weapon:"#C4506E" },
-    accent:"#E8809A" },
+    art:{ style:"spot", body:"#C77094", cap:"#8E2B52", pom:"#D98CAC", trim:"#FBF1D8", weapon:"#8E2B52" },
+    accent:"#C77094" },
 
   { id:"oomatsu", name:"王茸", role:"BOSS", skill:"王の一閃",
     hp:245, speed:50, dmg:18, reach:172,
@@ -1091,6 +1094,36 @@ function drawKO(g, A){
 }
 
 
+/* ---------- 斧（1体目のボスの得物） ----------
+   茶色の柄・青緑の刃・付け根の赤い玉・穂先の赤い突起。刃先が reach に届く長さで描く。 */
+function drawAxe(g, A, swing, len){
+  const ax = A.axe;
+  g.save(); g.rotate(-1.05 + swing*1.9);
+  // 柄
+  g.beginPath(); g.roundRect(-16, -5, len-16, 10, 5); paint(g, ax.haft, 3);
+  g.beginPath(); g.roundRect(len*0.34, -6, 16, 12, 3); paint(g, A.cap, 2.6);   // 赤い巻き
+  // 刃（内側がえぐれた広い扇）
+  const hx = len-46;
+  g.beginPath();
+  g.moveTo(hx, -12);
+  g.quadraticCurveTo(hx+34, -50, len+2, -34);
+  g.quadraticCurveTo(len+12, 0, len+2, 34);
+  g.quadraticCurveTo(hx+34, 50, hx, 12);
+  g.closePath(); paint(g, ax.blade, 3.2);
+  g.save();                                        // 刃の縁を明るく
+  g.beginPath();
+  g.moveTo(hx+30, -44); g.quadraticCurveTo(len+6, -30, len+6, 0);
+  g.quadraticCurveTo(len+6, 30, hx+30, 44);
+  g.strokeStyle=ax.edge; g.lineWidth=7; g.lineCap="round"; g.stroke(); g.restore();
+  // 付け根の玉
+  g.beginPath(); g.arc(hx+4, 0, 7, 0, 7); paint(g, ax.gem, 2.6);
+  // 穂先の突起
+  g.beginPath();
+  g.moveTo(len-6, -30); g.quadraticCurveTo(len+22, -52, len+6, -74);
+  g.quadraticCurveTo(len+2, -46, len-14, -26); g.closePath(); paint(g, ax.gem, 2.8);
+  g.restore();
+}
+
 /* ---------- ボスの描画：横2キャラ分 × 縦3キャラ分 ----------
    通常キャラを引き伸ばすと間延びするので、別の組み立てにしてある：
    大きな傘＋太く長い柄。顔は柄の上に付く。 */
@@ -1105,13 +1138,29 @@ function drawBoss(g, f, x, y){
   if(f.dead){ drawBossKO(g, A, W, H); g.restore(); return; }
 
   const stipeW = 30, stipeTop = -H*0.62;
+  // たてがみ（傘のうしろから放射状に出るとげ）
+  if(A.mane){
+    const cy = stipeTop+8;
+    const N = 17;
+    for(let i=0;i<N;i++){
+      // 傘のドームに沿って外向きに生やす（左下 → 上 → 右下）
+      const a  = Math.PI*(-0.13 + i*1.26/(N-1));
+      const px = Math.cos(a)*(W*0.86), py = cy - Math.sin(a)*(H*0.17);
+      const len = 34 + (i%3)*9 + Math.sin(i*1.7)*5;
+      g.save(); g.translate(px, py); g.rotate(-a);
+      g.beginPath();
+      g.moveTo(-6, -12); g.quadraticCurveTo(len*0.55, -8, len, 0);
+      g.quadraticCurveTo(len*0.55, 8, -6, 12); g.closePath();
+      paint(g, A.mane, 3); g.restore();
+    }
+  }
   // 脚
   [[-20,-8,-0.2],[20,-8,0.2]].forEach(([lx,ly,rot])=>{
     g.save(); g.translate(lx,ly); g.rotate(rot);
-    g.beginPath(); g.ellipse(0,0,15,17,0,0,7); paint(g,A.body,3.4); g.restore();
+    g.beginPath(); g.ellipse(0,0,15,17,0,0,7); paint(g,A.limb||A.body,3.4); g.restore();
   });
   // 奥の腕
-  g.beginPath(); g.ellipse(-stipeW-14, stipeTop*0.55, 15, 14, 0, 0, 7); paint(g,A.body,3.4);
+  g.beginPath(); g.ellipse(-stipeW-14, stipeTop*0.55, 15, 14, 0, 0, 7); paint(g,A.limb||A.body,3.4);
   // 柄（体）
   g.beginPath(); g.roundRect(-stipeW, stipeTop, stipeW*2, -stipeTop-6, 16);
   paint(g, ART.face, 3.6);
@@ -1131,27 +1180,42 @@ function drawBoss(g, f, x, y){
   // 傘のふち
   ink(g,3.6); g.beginPath(); g.moveTo(-W, stipeTop+6); g.lineTo(W, stipeTop+6); g.stroke();
 
-  // 顔（柄の上）
+  // 顔（柄の上）。設定画に笑顔のものがあるので2種類ある
   g.save(); g.translate(0, stipeTop+52); g.scale(1.35,1.35);
-  ink(g,5.5);
-  g.beginPath(); g.moveTo(-19,-13); g.lineTo(-6,-7); g.moveTo(6,-7); g.lineTo(19,-13); g.stroke();
+  const smile = f.s.face === "smile";
+  if(!smile){                                   // 怒り眉
+    ink(g,5.5);
+    g.beginPath(); g.moveTo(-19,-13); g.lineTo(-6,-7); g.moveTo(6,-7); g.lineTo(19,-13); g.stroke();
+  }
   g.save(); g.globalAlpha=.9; g.fillStyle=ART.blush;
   g.beginPath(); g.ellipse(-17,10,6,4.6,0,0,7); g.fill();
   g.beginPath(); g.ellipse(17,10,6,4.6,0,0,7); g.fill(); g.restore();
-  [-9,9].forEach(ex=>{
-    g.fillStyle=ART.eye; g.beginPath(); g.ellipse(ex,0,4.4,5.2,0,0,7); g.fill();
-    g.fillStyle="#fff"; g.beginPath(); g.arc(ex+1.4,-1.8,1.6,0,7); g.fill(); });
-  const mw=8, mh=13, my=8;
-  g.save(); g.beginPath(); g.roundRect(-mw,my,mw*2,mh,3); g.clip();
-  g.fillStyle=ART.tooth; g.fillRect(-mw,my,mw*2,mh);
-  g.fillStyle=ART.mouth; g.fillRect(-mw,my+mh*0.28,mw*2,mh*0.44); g.restore();
-  g.beginPath(); g.roundRect(-mw,my,mw*2,mh,3); ink(g,2.6); g.stroke();
+  [-9,9].forEach(ex=>{                          // 笑顔は目が大きい
+    g.fillStyle=ART.eye; g.beginPath();
+    g.ellipse(ex, smile? -2 : 0, smile? 5.4 : 4.4, smile? 7.0 : 5.2, 0, 0, 7); g.fill();
+    g.fillStyle="#fff"; g.beginPath(); g.arc(ex+1.6, smile? -4.6 : -1.8, smile? 2.1 : 1.6, 0, 7); g.fill(); });
+  if(smile){                                    // 開いた笑い口（舌つき）
+    g.save();
+    g.beginPath(); g.moveTo(-11,7); g.quadraticCurveTo(0,26,11,7); g.closePath();
+    paint(g, ART.eye, 2.8);
+    g.beginPath(); g.moveTo(-11,7); g.quadraticCurveTo(0,26,11,7); g.closePath(); g.clip();
+    g.fillStyle=ART.mouth;
+    g.beginPath(); g.ellipse(0,22,9,7,0,0,7); g.fill();
+    g.restore();
+  } else {
+    const mw=8, mh=13, my=8;
+    g.save(); g.beginPath(); g.roundRect(-mw,my,mw*2,mh,3); g.clip();
+    g.fillStyle=ART.tooth; g.fillRect(-mw,my,mw*2,mh);
+    g.fillStyle=ART.mouth; g.fillRect(-mw,my+mh*0.28,mw*2,mh*0.44); g.restore();
+    g.beginPath(); g.roundRect(-mw,my,mw*2,mh,3); ink(g,2.6); g.stroke();
+  }
   g.restore();
 
-  // 前の腕＋大剣
+  // 前の腕＋得物（斧を持つボスもいる）
   g.save(); g.translate(stipeW+16, stipeTop*0.55);
-  g.beginPath(); g.ellipse(0,0,16,15,0,0,7); paint(g,A.body,3.4);
-  drawSword(g, A.weapon, f.swing, f.s.reach - 46);   // 刃先が reach に届く長さ
+  g.beginPath(); g.ellipse(0,0,16,15,0,0,7); paint(g,A.limb||A.body,3.4);
+  if(A.axe) drawAxe(g, A, f.swing, f.s.reach - 42);
+  else drawSword(g, A.weapon, f.swing, f.s.reach - 46);   // 刃先が reach に届く長さ
   g.restore();
 
   g.restore();
