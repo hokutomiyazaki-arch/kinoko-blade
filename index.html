@@ -157,10 +157,7 @@ body{
 
 /* ---- ガチャ ---- */
 .gacha{border:1px solid var(--ink-3);background:var(--ink-2);padding:12px;margin-top:8px}
-.gslot{
-  font-family:var(--display);font-size:40px;text-align:center;height:64px;line-height:64px;
-  color:var(--dim);letter-spacing:.1em;
-}
+.gcv{display:block;margin:0 auto;width:220px;height:260px}
 .gname{font-family:var(--display);font-size:16px;text-align:center;letter-spacing:.08em;min-height:22px}
 .gdesc{font-size:11px;color:var(--dim);text-align:center;line-height:1.6;min-height:34px;margin-bottom:8px}
 
@@ -224,7 +221,7 @@ body{
     <p class="log" id="resultSub"></p>
     <div id="gachaBox" class="gacha hide">
       <p class="eyebrow" style="text-align:center">勝利報酬 / GACHA</p>
-      <div class="gslot" id="gslot">?</div>
+      <canvas class="gcv" id="gcv" width="440" height="520"></canvas>
       <p class="gname" id="gname">&nbsp;</p>
       <p class="gdesc" id="gdesc">&nbsp;</p>
       <button class="btn go" id="gachaBtn">ガチャを回す</button>
@@ -414,28 +411,28 @@ const CHAR_W = 63, CHAR_H = 77;          // 通常キャラの見た目の大き
 
 const BOSSES = [
   { id:"ooshiitake", name:"大椎茸", role:"BOSS", skill:"薙ぎ払い",
-    hp:300, speed:46, dmg:19, reach:166,
-    atkGauge:2.40, guardGauge:99, windup:0.62, active:0.22, recover:0.60,
+    hp:245, speed:46, dmg:16, reach:166,
+    atkGauge:2.70, guardGauge:99, windup:0.72, active:0.22, recover:0.66,
     guardTime:0.5, parryWindow:0.10,
-    shot:{ name:"胞子の雨", kind:"lob", gauge:3.6, dmg:8, speed:120, up:170, n:3,
+    shot:{ name:"胞子の雨", kind:"lob", gauge:3.9, dmg:7, speed:120, up:170, n:3,
            windup:0.50, recover:0.52, r:12, life:3.6 },
     art:{ style:"spot", body:"#7FB4D8", cap:"#4E7FA8", pom:"#B7A5E8", trim:"#FAF3E2", weapon:"#B7A5E8" },
     accent:"#7FB4D8" },
 
   { id:"oobeni", name:"大紅天狗", role:"BOSS", skill:"紅の薙ぎ",
-    hp:300, speed:48, dmg:19, reach:169,
-    atkGauge:2.35, guardGauge:99, windup:0.56, active:0.22, recover:0.56,
+    hp:245, speed:48, dmg:17, reach:169,
+    atkGauge:2.60, guardGauge:99, windup:0.66, active:0.22, recover:0.62,
     guardTime:0.5, parryWindow:0.10, poison:{dps:1.6, dur:4},
-    shot:{ name:"毒の雨", kind:"lob", gauge:3.4, dmg:8, speed:130, up:175, n:4,
+    shot:{ name:"毒の雨", kind:"lob", gauge:3.7, dmg:7, speed:130, up:175, n:4,
            windup:0.46, recover:0.50, r:13, life:3.6, poison:{dps:1.0, dur:3} },
     art:{ style:"spot", body:"#E8809A", cap:"#C4506E", pom:"#F2A0B7", trim:"#FBF1D8", weapon:"#C4506E" },
     accent:"#E8809A" },
 
   { id:"oomatsu", name:"王茸", role:"BOSS", skill:"王の一閃",
-    hp:300, speed:50, dmg:20, reach:172,
-    atkGauge:2.30, guardGauge:99, windup:0.50, active:0.22, recover:0.52,
+    hp:245, speed:50, dmg:18, reach:172,
+    atkGauge:2.50, guardGauge:99, windup:0.60, active:0.22, recover:0.58,
     guardTime:0.5, parryWindow:0.10,
-    shot:{ name:"香気の雨", kind:"lob", gauge:3.2, dmg:9, speed:140, up:180, n:4,
+    shot:{ name:"香気の雨", kind:"lob", gauge:3.5, dmg:8, speed:140, up:180, n:4,
            windup:0.42, recover:0.46, r:12, life:3.6 },
     art:{ style:"stripe", body:"#C3B2EF", cap:"#8C74C8", pom:"#8C74C8", trim:"#FAF5E8", weapon:"#8C74C8" },
     accent:"#C3B2EF" },
@@ -608,6 +605,10 @@ const SFX = {
   thunder(){ hiss(0.35,{f0:6000,f1:400,q:0.8,vol:0.34});
              beep(90,0.5,{to:40,type:"square",vol:0.30}); },
   gachaTick(){ beep(1200+Math.random()*600,0.04,{type:"square",vol:0.08}); },
+  gachaDrop(){ beep(260,0.16,{to:120,type:"square",vol:0.16});
+               hiss(0.12,{f0:1800,f1:600,q:1.4,vol:0.12}); },
+  gachaLand(){ beep(180,0.10,{to:110,type:"sine",vol:0.14});
+               hiss(0.07,{f0:2400,f1:900,q:2,vol:0.08}); },
   gachaHit(){ [0,7,12,16].forEach((n,i)=>
                 beep(523*Math.pow(2,n/12),0.45,{type:"triangle",vol:0.20,delay:i*0.09})); },
   gachaMiss(){ beep(300,0.35,{to:150,type:"triangle",vol:0.16});
@@ -1758,55 +1759,177 @@ function showResult(){
   show("scEnd");
 }
 
-/* ---------- ガチャ ---------- */
-let gachaSpinning = false;
+/* ---------- ガチャポン ----------
+   ハンドルを回す → カプセルが落ちる → 弾んで止まる → 割れて中身が出る。
+   canvas に手描きしている（画像を持たない方針は音と同じ）。 */
+const G_CRANK = 0.95, G_DROP = 1.55, G_SETTLE = 2.05, G_OPEN = 2.45;
+let gAnim = null;
+
 function gachaReady(){
   const box = $("gachaBox");
   box.classList.remove("hide");
-  $("gslot").textContent = "?";
-  $("gslot").style.color = "var(--dim)";
   $("gname").textContent = SAVE.bag.length>=BAG_MAX ? "手持ちが満杯（5個）" : "\u00a0";
   $("gdesc").textContent = SAVE.bag.length>=BAG_MAX
-    ? "1つ使ってから回すと受け取れる。回すこと自体はできる。" : "\u00a0";
+    ? "1つ使ってから回すと受け取れる。回すこと自体はできる。" : "ハンドルを回す";
   $("gachaBtn").disabled = false;
   $("gachaBtn").textContent = "ガチャを回す";
+  gAnim = null;
+  drawGachapon({t:0, res:null});
 }
+
 function spinGacha(){
-  if(gachaSpinning) return;
-  gachaSpinning = true;
+  if(gAnim) return;
+  const res = rollGacha();
   $("gachaBtn").disabled = true;
-  const result = rollGacha();
-  const marks = WEAPONS.map(w=>w.mark).concat(["・"]);
-  let n = 0;
-  const iv = setInterval(()=>{
-    n++;
-    $("gslot").textContent = marks[n % marks.length];
-    $("gslot").style.color = "var(--cream)";
-    SFX.gachaTick();
-    if(n >= 16){
-      clearInterval(iv);
-      gachaSpinning = false;
-      $("gachaBtn").textContent = "もう一度回すには勝つこと";
-      if(!result){
-        $("gslot").textContent = "×"; $("gslot").style.color = "var(--dim)";
-        $("gname").textContent = "はずれ";
-        $("gdesc").textContent = "また勝てば引ける。";
-        SFX.gachaMiss();
-      } else if(SAVE.bag.length >= BAG_MAX){
-        $("gslot").textContent = result.mark; $("gslot").style.color = result.color;
-        $("gname").textContent = `${result.name} … 手持ちが満杯で受け取れない`;
-        $("gdesc").textContent = "5個持てる上限。1つ使ってから勝つと入る。";
-        SFX.gachaMiss();
-      } else {
-        SAVE.bag.push(result.id); SAVE.save();
-        $("gslot").textContent = result.mark; $("gslot").style.color = result.color;
-        $("gname").textContent = `${result.name}（${result.role}）を獲得！`;
-        $("gdesc").textContent = result.desc;
-        SFX.gachaHit();
-      }
-      renderBag(); renderStatus();
+  $("gname").textContent = "\u00a0"; $("gdesc").textContent = "\u00a0";
+  gAnim = {t:0, res, last:performance.now(), tick:0, dropped:false, landed:false, opened:false};
+  const frame = (now)=>{
+    if(!gAnim) return;
+    const dt = Math.min(0.05, (now-gAnim.last)/1000); gAnim.last = now;
+    gAnim.t += dt;
+    if(gAnim.t < G_CRANK){                       // ハンドルのカチカチ
+      gAnim.tick -= dt; if(gAnim.tick<=0){ gAnim.tick = 0.10; SFX.gachaTick(); }
     }
-  }, 70);
+    if(!gAnim.dropped && gAnim.t >= G_CRANK){ gAnim.dropped = true; SFX.gachaDrop(); }
+    if(!gAnim.landed  && gAnim.t >= G_DROP ){ gAnim.landed  = true; SFX.gachaLand(); }
+    if(!gAnim.opened  && gAnim.t >= G_OPEN ){ gAnim.opened  = true; giveGacha(res); }
+    drawGachapon(gAnim);
+    if(gAnim.t < G_OPEN + 1.0) requestAnimationFrame(frame);
+    else gAnim = null;                            // 最後の絵は残したまま止める
+  };
+  requestAnimationFrame(frame);
+}
+
+function giveGacha(res){
+  if(!res){
+    $("gname").textContent = "はずれ";
+    $("gdesc").textContent = "また勝てば引ける。";
+    SFX.gachaMiss();
+  } else if(SAVE.bag.length >= BAG_MAX){
+    $("gname").textContent = `${res.name} … 手持ちが満杯で受け取れない`;
+    $("gdesc").textContent = "5個持てる上限。1つ使ってから勝つと入る。";
+    SFX.gachaMiss();
+  } else {
+    SAVE.bag.push(res.id); SAVE.save();
+    $("gname").textContent = `${res.name}（${res.role}）を獲得！`;
+    $("gdesc").textContent = res.desc;
+    SFX.gachaHit();
+  }
+  $("gachaBtn").textContent = "もう一度回すには勝つこと";
+  renderBag(); renderStatus();
+}
+
+/* 筐体のなかのカプセル（位置は固定。回している間だけ揺れる） */
+const G_BALLS = [[-34,-18],[-12,-30],[10,-26],[30,-10],[-28,6],[-6,-6],[16,4],[34,14],
+                 [-18,20],[4,18],[24,26],[-36,-2],[0,-42],[18,-40]];
+function drawGachapon(a){
+  const cv2 = $("gcv"); if(!cv2) return;
+  const x = cv2.getContext("2d");
+  x.setTransform(2,0,0,2,0,0);                    // 論理 220×260
+  x.clearRect(0,0,220,260);
+  const t = a.t, res = a.res;
+  const col = res ? res.color : "#6E6880";
+
+  // ---- 台と筐体 ----
+  x.fillStyle="#211E29"; x.beginPath(); x.roundRect(32,118,156,104,12); x.fill();
+  x.strokeStyle="#4A4456"; x.lineWidth=2; x.stroke();
+  x.fillStyle="#332E40"; x.beginPath(); x.roundRect(48,126,124,24,6); x.fill();
+  x.fillStyle="#EDE4CC"; x.font="700 13px "+getComputedStyle(document.body).fontFamily;
+  x.textAlign="center"; x.fillText("菌 血 闘 技", 110, 143);
+
+  // ---- ドーム（ガラス）----
+  x.save();
+  x.beginPath(); x.arc(110,120,58,Math.PI*0.98,Math.PI*2.02); x.closePath();
+  x.fillStyle="rgba(237,228,204,.07)"; x.fill();
+  x.clip();
+  const shake = t < G_CRANK ? Math.sin(t*38)*3 : 0;
+  G_BALLS.forEach(([bx,by],i)=>{
+    const w = WEAPONS[i % WEAPONS.length];
+    x.beginPath();
+    x.arc(110+bx+shake*((i%3)-1), 100+by*0.7+Math.abs(shake)*((i%2)?0.5:-0.5), 10, 0, 7);
+    x.fillStyle = w.color; x.globalAlpha=.85; x.fill(); x.globalAlpha=1;
+    x.strokeStyle="rgba(30,27,36,.5)"; x.lineWidth=1.5; x.stroke();
+  });
+  x.restore();
+  x.beginPath(); x.arc(110,120,58,Math.PI*0.98,Math.PI*2.02);
+  x.strokeStyle="#6E6880"; x.lineWidth=3; x.stroke();
+  x.save();                                       // ガラスの照り
+  x.globalAlpha=.16; x.strokeStyle="#FFF"; x.lineWidth=7; x.lineCap="round";
+  x.beginPath(); x.arc(110,120,46,Math.PI*1.15,Math.PI*1.45); x.stroke(); x.restore();
+
+  // ---- ハンドル ----
+  const turns = Math.min(1, t/G_CRANK);
+  const ang = turns*Math.PI*4;                    // 2回転
+  x.save(); x.translate(156,188);
+  x.beginPath(); x.arc(0,0,15,0,7); x.fillStyle="#4A4456"; x.fill();
+  x.strokeStyle="#EDE4CC"; x.lineWidth=2; x.stroke();
+  x.rotate(ang);
+  x.beginPath(); x.roundRect(-3,-13,6,26,3); x.fillStyle="#EDE4CC"; x.fill();
+  x.beginPath(); x.arc(0,-13,4.5,0,7); x.fillStyle="#C6A24A"; x.fill();
+  x.restore();
+
+  // ---- 取り出し口 ----
+  x.fillStyle="#14121A"; x.beginPath(); x.roundRect(62,176,58,30,6); x.fill();
+  x.strokeStyle="#4A4456"; x.lineWidth=2; x.stroke();
+  const flap = (t>G_CRANK && t<G_DROP) ? 0.9 : 0;   // 落ちる間だけフタが開く
+  x.save(); x.translate(62,176); x.rotate(-flap);
+  x.fillStyle="#332E40"; x.beginPath(); x.roundRect(0,0,58,8,3); x.fill(); x.restore();
+
+  // ---- カプセル ----
+  let cx=91, cy=191, open=0, show=false;
+  if(t >= G_CRANK){
+    show = true;
+    if(t < G_DROP){                                // 落下
+      const p=(t-G_CRANK)/(G_DROP-G_CRANK);
+      cy = 191 + p*p*45; cx = 91 + p*5;
+    } else if(t < G_SETTLE){                       // 弾む
+      const p=(t-G_DROP)/(G_SETTLE-G_DROP);
+      cy = 236 - Math.abs(Math.sin(p*Math.PI*2))*18*(1-p); cx = 96 + p*4;
+    } else {
+      cy = 236; cx = 100;
+      open = Math.min(1, (t-G_OPEN)/0.34);
+      if(open<0) open = 0;
+    }
+  }
+  if(show){
+    const R=17;
+    x.save(); x.translate(cx,cy);
+    if(open<=0){
+      x.beginPath(); x.arc(0,0,R,Math.PI,0); x.fillStyle=col; x.fill();
+      x.strokeStyle="#1E1B24"; x.lineWidth=2; x.stroke();
+      x.beginPath(); x.arc(0,0,R,0,Math.PI); x.fillStyle="#F8EDCB"; x.fill(); x.stroke();
+      x.beginPath(); x.moveTo(-R,0); x.lineTo(R,0); x.strokeStyle="#1E1B24"; x.stroke();
+    } else {
+      // 割れる：上下が離れて中身が出る
+      const d = open*26;
+      x.save(); x.translate(-d*0.5,-d); x.rotate(-open*0.5);
+      x.beginPath(); x.arc(0,0,R,Math.PI,0); x.fillStyle=col; x.fill();
+      x.strokeStyle="#1E1B24"; x.lineWidth=2; x.stroke(); x.restore();
+      x.save(); x.translate(d*0.5,d*0.6); x.rotate(open*0.5);
+      x.beginPath(); x.arc(0,0,R,0,Math.PI); x.fillStyle="#F8EDCB"; x.fill();
+      x.strokeStyle="#1E1B24"; x.lineWidth=2; x.stroke(); x.restore();
+      // 光
+      x.save(); x.globalAlpha=Math.max(0,0.8-open*0.8);
+      x.strokeStyle="#FFF9E8"; x.lineWidth=2.5; x.lineCap="round";
+      for(let i=0;i<8;i++){ const A=i/8*Math.PI*2;
+        x.beginPath(); x.moveTo(Math.cos(A)*(10+open*10), Math.sin(A)*(10+open*10));
+        x.lineTo(Math.cos(A)*(20+open*26), Math.sin(A)*(20+open*26)); x.stroke(); }
+      x.restore();
+      // 中身
+      const sc = Math.min(1, open*1.4);
+      x.save(); x.translate(0,-6); x.scale(sc,sc);
+      if(res){
+        x.font="700 30px "+getComputedStyle(document.body).fontFamily;
+        x.textAlign="center"; x.textBaseline="middle";
+        x.fillStyle=res.color; x.fillText(res.mark, 0, 0);
+      } else {
+        x.strokeStyle="#6E6880"; x.lineWidth=3.5; x.lineCap="round";
+        x.beginPath(); x.moveTo(-9,-9); x.lineTo(9,9); x.moveTo(9,-9); x.lineTo(-9,9); x.stroke();
+      }
+      x.restore();
+    }
+    x.restore();
+  }
 }
 
 /* ---------- 選択画面の状態表示 ---------- */
