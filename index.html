@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>キノコ決闘団 — KINOKO DUEL SQUAD</title>
+<meta name="description" content="きのこの剣士たちが胞子紋の闘技場で斬り合う、間合いと読み合いの対戦ゲーム。">
+<!-- ホーム画面に置いてアプリとして遊べるようにする（PWA） -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1E1B24">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="icon" href="icon-512.png" sizes="512x512" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="キノコ決闘団">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- 外部フォントは描画も script もブロックさせない。
@@ -34,10 +45,14 @@ body{
   background-image:radial-gradient(circle at 50% 0%,#2A2534 0%,var(--ink) 60%);
   overscroll-behavior:none;overflow:hidden;
 }
-/* 画面いっぱいに使う。闘技場は残った高さを全部取る */
+/* 画面いっぱいに使う。闘技場は残った高さを全部取る。
+   iPad の横向き（〜1366px）でも左右が余らないよう上限は広めに取り、
+   ノッチ・ホームバーの分だけ safe-area で内側に逃がす */
 #app{
-  width:100%;max-width:1180px;height:100dvh;
-  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  width:100%;max-width:1600px;height:100dvh;
+  padding:8px calc(10px + env(safe-area-inset-right))
+          calc(8px + env(safe-area-inset-bottom))
+          calc(10px + env(safe-area-inset-left));
   display:flex;flex-direction:column;gap:8px;
 }
 #app > section{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
@@ -1681,7 +1696,7 @@ function bossThink(B){
 /* ---------- 画面いっぱいに合わせる ---------- */
 /* 横幅（＝壁の間隔）は 480 で固定。バランスに直結するので画面で変えない。
    代わりに高さだけ画面比に合わせて伸ばし、余白を作らず全面を使う。 */
-const view = {scale:1, ox:0, oy:0};
+const view = {scale:1, ox:0, oy:0, bleed:0};
 function fitStage(){
   const box = cv.parentElement.getBoundingClientRect();
   const dpr = Math.min(2, window.devicePixelRatio||1);
@@ -1695,6 +1710,10 @@ function fitStage(){
   cv.height = Math.round(cssH*dpr);
   // 横だけで合わせると縦がはみ出すことがあるので、両方に収まる倍率を採る
   view.scale = Math.min(cv.width/RULES.arenaW, cv.height/RULES.arenaH);
+  // 横に余ったぶんは黒帯にせず、背景と地面を左右へ延ばして画面の端まで使う。
+  // 壁（＝戦える範囲）は 44〜516 のままなので、勝負のバランスは変わらない。
+  // ボス戦は縦3キャラ分の高さが要るぶん倍率が下がり、横向きの iPad ではここが効く。
+  view.bleed = Math.max(0, (cv.width/view.scale - RULES.arenaW)/2);
   view.ox = (cv.width  - RULES.arenaW*view.scale)/2;
   view.oy = (cv.height - RULES.arenaH*view.scale)/2;
 }
@@ -1703,27 +1722,29 @@ addEventListener("resize", ()=>{ if(!$("scFight").classList.contains("hide")){ f
 /* ---------- 描画 ---------- */
 function render(){
   const W=RULES.arenaW, H=RULES.arenaH, F=RULES.floorY;
+  // 背景と地面だけは闘技場の外へも延ばす（X0 から幅 WW ぶん）
+  const B=view.bleed, X0=-B, WW=W+B*2;
   g.setTransform(1,0,0,1,0,0);
   g.fillStyle="#211E29"; g.fillRect(0,0,cv.width,cv.height);
   g.setTransform(view.scale,0,0,view.scale,view.ox,view.oy);
   const sky = g.createLinearGradient(0,0,0,H);
   sky.addColorStop(0, stage.sky[0]); sky.addColorStop(1, stage.sky[1]);
-  g.fillStyle = sky; g.fillRect(0,0,W,H);
+  g.fillStyle = sky; g.fillRect(X0,0,WW,H);
 
   // 胞子紋の同心円は情景の下に薄く敷く（署名要素は残しつつ情景を主役にする）
   g.save(); g.globalAlpha=.13; g.strokeStyle=stage.ring; g.lineWidth=1;
-  const rMax = Math.max(300, H*1.4);
+  const rMax = Math.max(300, H*1.4, WW*0.75);
   for(let r=30;r<rMax;r+=24){ g.beginPath(); g.arc(W/2,F,r,Math.PI,0); g.stroke(); }
   g.restore();
 
   // 情景（森・街・洞窟・湖畔・神社・雪原）
-  g.save(); scenery(g, stage, W, H, F); g.restore();
+  g.save(); g.translate(X0,0); scenery(g, stage, WW, H, F); g.restore();
 
   // 漂う胞子（面ごとに色が違う）
   g.save(); g.fillStyle=stage.mote; g.globalAlpha=.22;
   const now = performance.now()/1000;
   for(let i=0;i<14;i++){
-    const sx = ((i*97 + now*(6+i%5)*2) % (W+40)) - 20;
+    const sx = X0 + ((i*97 + now*(6+i%5)*2) % (WW+40)) - 20;
     const sy = F - ((i*53 + now*(9+(i%4)*4)) % (H*0.9)) - 10;
     g.beginPath(); g.arc(sx, sy, 1.4+(i%3)*0.7, 0, 7); g.fill();
   }
@@ -1731,8 +1752,11 @@ function render(){
 
   // 床
   g.strokeStyle=stage.floor; g.lineWidth=1.4;
-  g.beginPath(); g.moveTo(0,F+.5); g.lineTo(W,F+.5); g.stroke();
-  g.fillStyle=stage.ground; g.fillRect(0,F+1,W,H-F);
+  g.beginPath(); g.moveTo(X0,F+.5); g.lineTo(X0+WW,F+.5); g.stroke();
+  g.fillStyle=stage.ground; g.fillRect(X0,F+1,WW,H-F);
+  // 闘技場の外は少し落として、戦える範囲がどこまでか目で分かるようにする
+  if(B>0){ g.save(); g.globalAlpha=.30; g.fillStyle="#0F0D14";
+    g.fillRect(X0,0,B,H); g.fillRect(W,0,B,H); g.restore(); }
   // 壁の目盛
   g.strokeStyle=stage.ring;
   [RULES.wallL,RULES.wallR].forEach(x=>{ g.beginPath(); g.moveTo(x,F-74); g.lineTo(x,F); g.stroke(); });
@@ -2320,6 +2344,12 @@ buildRoster();
 renderStatus();
 renderBag();
 $("gachaBtn").onclick = spinGacha;
+
+/* ---------- ホーム画面に置ける／圏外でも遊べるようにする ---------- */
+/* file:// で開いた時は登録できないので黙って諦める。ゲーム側は一切変わらない */
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+}
 </script>
 </body>
 </html>
