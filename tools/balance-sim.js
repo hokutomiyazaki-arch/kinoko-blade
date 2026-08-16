@@ -27,7 +27,17 @@ function rnd(){ _seed|=0; _seed=_seed+0x6D2B79F5|0;
   return ((t^t>>>14)>>>0)/4294967296; }
 function reseed(v){ _seed=v|0; }
 
-function mk(s,x,d){return{s,x,dir:d,hp:s.hp,atk:0,grd:0,sht:0,st:"walk",t:0,hit:0,cast:0,poi:0,pdps:0,timer:0,hurtLim:R.hurtTime};}
+function mk(s,x,d,dmgScale){return{s,x,dir:d,hp:s.hp,atk:0,grd:0,sht:0,st:"walk",t:0,hit:0,cast:0,poi:0,pdps:0,timer:0,hurtLim:R.hurtTime,dmgScale:dmgScale==null?1:dmgScale};}
+
+/* 敵のレベル。index.html の cpuProfile() と同じ式にすること。
+   Lv.1 は反応が鈍く滅多にガードしない。Lv.10 で従来のCPUに並ぶ。 */
+function cpuProfile(lv){
+  const t=Math.pow(Math.min(1,Math.max(0,(lv-1)/9)),0.5), over=Math.min(1,Math.max(0,(lv-10)/10));
+  return { react:0.60-0.38*t-0.10*over, guard:0.20+0.52*t+0.15*over,
+           pGuard:0.25+0.55*t+0.12*over, shot:0.15+0.40*t+0.15*over,
+           dmg:0.75+0.25*t, hp:1.00+0.15*over, lv };
+}
+const PROF10 = cpuProfile(10);
 function facing(a,b){return Math.sign(b.x-a.x)===a.dir;}
 
 function fire(f,shots){
@@ -52,9 +62,9 @@ function upd(f,shots){
   else if(f.st==="guard"){ if(f.t>=s.guardTime){f.st="walk";f.t=0;} }
   else { const lim=f.st==="stun"?R.parryStun:f.hurtLim; if(f.t>=lim){f.st="walk";f.t=0;} }
 }
-function ai(f,o,shots,skill){
+function ai(f,o,shots,pf){
   f.timer-=DT; if(f.st!=="walk"||f.timer>0) return;
-  f.timer=R.react*(0.7+rnd()*0.6)/skill;
+  f.timer=pf.react*(0.7+rnd()*0.6);
   const d=Math.abs(o.x-f.x);
   // 飛んでくる弾は防御でしか止まらない
   if(f.grd>=1){
@@ -65,17 +75,17 @@ function ai(f,o,shots,skill){
       const tta=(Math.abs(sh.x-f.x)-R.hitHalfW)/Math.max(40,Math.abs(sh.vx));
       if(tta>=0&&(best===null||tta<best)) best=tta;
     }
-    if(best!==null&&best<Math.min(0.34,f.s.guardTime*0.55)&&rnd()<0.80){ f.grd=0;f.st="guard";f.t=0; return; }
+    if(best!==null&&best<Math.min(0.34,f.s.guardTime*0.55)&&rnd()<pf.pGuard){ f.grd=0;f.st="guard";f.t=0; return; }
   }
   if(o.st==="windup"&&f.grd>=1&&d<o.s.reach+60){
-    if(o.s.windup-o.t < f.s.parryWindow*0.9+0.06 && rnd()<0.72){ f.grd=0;f.st="guard";f.t=0; return; }
+    if(o.s.windup-o.t < f.s.parryWindow*0.9+0.06 && rnd()<pf.guard){ f.grd=0;f.st="guard";f.t=0; return; }
   }
   if(f.sht>=1&&facing(f,o)){
     const k=f.s.shot.kind;
     const ok = k==="lob" ? (d>150&&d<300) : d>f.s.reach*0.95;
     // 斬れる間合いに入りかけているなら撃たない（撃ち終わりに斬られる）
     const keepMelee = f.atk>=1 && d < f.s.reach*1.7;
-    if(ok&&!keepMelee&&rnd()<0.55){ f.sht=0;f.st="cast";f.t=0;f.cast=0; return; }
+    if(ok&&!keepMelee&&rnd()<pf.shot){ f.sht=0;f.st="cast";f.t=0;f.cast=0; return; }
   }
   if(f.atk>=1&&facing(f,o)){
     const rel=(o.st==="walk"&&!facing(o,f))? f.s.speed-o.s.speed : f.s.speed+o.s.speed;
@@ -94,7 +104,7 @@ function res(a,b){
     } else { b.hp=Math.max(0,b.hp-Math.min(a.s.dmg*R.blockChip,R.chipCap)); }
     return;
   }
-  b.hp=Math.max(0,b.hp-a.s.dmg); b.st="hurt"; b.t=0; b.hurtLim=R.hurtTime;
+  b.hp=Math.max(0,b.hp-a.s.dmg*a.dmgScale); b.st="hurt"; b.t=0; b.hurtLim=R.hurtTime;
   b.x=Math.max(R.wallL,Math.min(R.wallR,b.x+kb));
   if(a.s.poison){ b.poi=a.s.poison.dur; b.pdps=a.s.poison.dps; }
 }
@@ -107,7 +117,7 @@ function shotHit(sh,f){
     f.grd=Math.min(1,f.grd+R.shotBlockRefund);
     return;
   }
-  f.hp=Math.max(0,f.hp-S.dmg); f.st="hurt"; f.t=0; f.hurtLim=R.shotHurt;
+  f.hp=Math.max(0,f.hp-S.dmg*sh.o.dmgScale); f.st="hurt"; f.t=0; f.hurtLim=R.shotHurt;
   f.x=Math.max(R.wallL,Math.min(R.wallR,f.x+Math.sign(sh.vx||sh.dir)*R.shotKnock));
   if(S.poison){ f.poi=S.poison.dur; f.pdps=S.poison.dps; }
 }
@@ -133,19 +143,20 @@ function updShots(shots,a,b){
   }
   return shots.filter(s=>!s.dead);
 }
-function fight(A,B,sa=1,sb=1,flip=false){
-  const a=mk(A,flip?R.wallR-80:R.wallL+80,flip?-1:1),
-        b=mk(B,flip?R.wallL+80:R.wallR-80,flip?1:-1);
+function fight(A,B,pa=PROF10,pb=PROF10,flip=false){
+  const a=mk(A,flip?R.wallR-80:R.wallL+80,flip?-1:1,pa.dmg),
+        b=mk(B,flip?R.wallL+80:R.wallR-80,flip?1:-1,pb.dmg);
+  a.hp*=pa.hp; b.hp*=pb.hp;
   let T=R.roundTime, shots=[];
   while(T>0&&a.hp>0&&b.hp>0){
-    T-=DT; ai(a,b,shots,sa); ai(b,a,shots,sb); upd(a,shots); upd(b,shots);
+    T-=DT; ai(a,b,shots,pa); ai(b,a,shots,pb); upd(a,shots); upd(b,shots);
     const d=Math.abs(a.x-b.x);
     if(d<R.bodyGap){ const s=Math.sign(a.x-b.x)||1;
       if(a.st==="walk")a.dir=s; if(b.st==="walk")b.dir=-s; a.x+=s*1.6; b.x-=s*1.6; }
     res(a,b); res(b,a);
     shots=updShots(shots,a,b);
   }
-  const ra=a.hp/A.hp, rb=b.hp/B.hp;
+  const ra=a.hp/(A.hp*pa.hp), rb=b.hp/(B.hp*pb.hp);
   return ra>rb?1:ra<rb?-1:0;
 }
 
@@ -155,7 +166,7 @@ function table(N, log=console.log){
   for(const A of S){
     let row=A.id.padEnd(12), tot=0, n=0;
     for(const B of S){
-      let w=0; for(let i=0;i<N;i++){ const r=fight(A,B,1,1,i%2===1); if(r>0)w++; else if(r===0)w+=.5; }
+      let w=0; for(let i=0;i<N;i++){ const r=fight(A,B,PROF10,PROF10,i%2===1); if(r>0)w++; else if(r===0)w+=.5; }
       const p=w/N*100; row+=(p.toFixed(0)+"%").padEnd(10);
       if(A!==B){tot+=p;n++;}
     }
@@ -163,9 +174,24 @@ function table(N, log=console.log){
   }
   return {rows, avgs};
 }
-module.exports={S,R,fight,table,reseed};
+module.exports={S,R,fight,table,reseed,cpuProfile,PROF10};
 
 if(require.main!==module) return;
+
+if(process.argv[2]==="levels"){
+  // 各レベルのCPUが Lv.10 のCPU相手にどれだけ勝てるか（全キャラ平均）
+  reseed(20260815);
+  console.log("Lv.N の敵 vs Lv.10 の敵（同キャラ同士・各120戦）\n");
+  for(const lv of [1,2,3,4,5,6,8,10,12,15,20]){
+    const pf=cpuProfile(lv);
+    let w=0,n=0;
+    for(const A of S){ for(let i=0;i<120;i++){ const r=fight(A,A,pf,PROF10,i%2===1); if(r>0)w++; else if(r===0)w+=.5; n++; } }
+    const p=w/n*100;
+    console.log(("Lv."+lv).padEnd(6)+ (p.toFixed(1)+"%").padStart(7) + "  " +
+      "█".repeat(Math.round(p/2)) );
+  }
+  return;
+}
 
 const N=300;
 console.log("行 = 自分 / 列 = 相手 (勝率%)  N="+N+"/組\n");
