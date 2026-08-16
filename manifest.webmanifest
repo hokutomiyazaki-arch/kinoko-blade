@@ -1,0 +1,20 @@
+{
+  "name": "キノコ決闘団",
+  "short_name": "キノコ決闘団",
+  "description": "きのこの剣士たちが胞子紋の闘技場で斬り合う、間合いと読み合いの対戦ゲーム。",
+  "lang": "ja",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1E1B24",
+  "theme_color": "#1E1B24",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icon-192.png",          "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png",          "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
