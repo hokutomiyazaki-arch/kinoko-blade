@@ -119,6 +119,30 @@ body{
 .bag button.sel{background:var(--ink-3);outline:1px solid var(--cream)}
 .bag button:disabled{cursor:default}
 
+/* ---- ボス戦：味方ごとの操作パネル ---- */
+.panels{display:flex;flex-direction:column;gap:5px;flex:0 0 auto}
+.panel{border:1px solid var(--ink-3);background:var(--ink-2);padding:4px 5px}
+.panel.act{border-color:var(--cream)}
+.panel.ko{opacity:.4}
+.phead{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.phead .n{font-family:var(--mono);font-size:9px;color:var(--ink);background:var(--dim);
+  width:14px;height:14px;line-height:14px;text-align:center;font-weight:700}
+.panel.act .phead .n{background:var(--cream)}
+.phead .nm2{font-family:var(--display);font-size:12px;letter-spacing:.04em}
+.phead .hp2{flex:1;height:5px;background:var(--ink-3);position:relative;overflow:hidden}
+.phead .hp2 b{position:absolute;inset:0 auto 0 0;background:var(--cream);transition:width .18s}
+.prow{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.mini{
+  position:relative;overflow:hidden;cursor:pointer;padding:7px 2px 8px;
+  border:1px solid var(--ink-3);background:var(--ink);color:var(--cream);
+  font-family:var(--display);font-size:15px;letter-spacing:.1em;
+}
+.mini i{position:absolute;left:0;bottom:0;height:3px;background:var(--c);width:0;transition:width .08s linear}
+.mini.ready{border-color:var(--c);background:linear-gradient(0deg,color-mix(in srgb,var(--c) 20%,var(--ink)),var(--ink))}
+.mini:active{background:var(--c);color:var(--ink)}
+.mini:disabled{opacity:.4;cursor:default}
+.mini.a{--c:var(--rust)} .mini.g{--c:var(--moss)} .mini.s{--c:var(--ochre)} .mini.w{--c:var(--cream)}
+
 /* ---- 選択画面の状態表示 ---- */
 .status{
   display:flex;align-items:center;gap:10px;flex:0 0 auto;
@@ -185,7 +209,8 @@ body{
     <div class="arena"><canvas id="stage"></canvas></div>
     <p class="log" id="log">&nbsp;</p>
     <div class="bag" id="bag"></div>
-    <div class="pads">
+    <div class="panels hide" id="panels"></div>
+    <div class="pads" id="pads">
       <button class="pad" id="padA"><canvas width="84" height="84"></canvas>攻<small>ATTACK</small></button>
       <button class="pad" id="padG"><canvas width="84" height="84"></canvas>防<small>GUARD</small></button>
       <button class="pad" id="padS"><canvas width="84" height="84"></canvas>飛<small>SHOT</small></button>
@@ -373,6 +398,70 @@ const SAVE = {
   reset(){ this.level=1; this.bag=[]; this.save(); },
 };
 SAVE.load();
+
+
+/* ══════════════════════════════════════════════════════════════════
+   ボス — レベル3の倍数で出る
+   ------------------------------------------------------------------
+   大きさは「横2キャラ分 × 縦3キャラ分」。通常キャラの当たり判定とは
+   別に box を持つ。ボスは防御しない（防御ゲージが埋まらない）ので、
+   こちらの防御と手数だけが答えになる。
+   味方は Lv.3 で2体、Lv.6以降は3体。全員がやられたら負け。
+   ══════════════════════════════════════════════════════════════════ */
+const BOSS_EVERY = 3;
+const isBossLevel = lv => lv % BOSS_EVERY === 0;
+const CHAR_W = 63, CHAR_H = 77;          // 通常キャラの見た目の大きさ（世界座標）
+
+const BOSSES = [
+  { id:"ooshiitake", name:"大椎茸", role:"BOSS", skill:"薙ぎ払い",
+    hp:260, speed:46, dmg:19, reach:150,
+    atkGauge:2.40, guardGauge:99, windup:0.62, active:0.22, recover:0.60,
+    guardTime:0.5, parryWindow:0.10,
+    shot:{ name:"胞子の雨", kind:"lob", gauge:3.6, dmg:8, speed:120, up:170, n:3,
+           windup:0.50, recover:0.52, r:12, life:3.6 },
+    art:{ style:"spot", body:"#7FB4D8", cap:"#4E7FA8", pom:"#B7A5E8", trim:"#FAF3E2", weapon:"#B7A5E8" },
+    accent:"#7FB4D8" },
+
+  { id:"oobeni", name:"大紅天狗", role:"BOSS", skill:"紅の薙ぎ",
+    hp:260, speed:48, dmg:19, reach:152,
+    atkGauge:2.35, guardGauge:99, windup:0.56, active:0.22, recover:0.56,
+    guardTime:0.5, parryWindow:0.10, poison:{dps:1.6, dur:4},
+    shot:{ name:"毒の雨", kind:"lob", gauge:3.4, dmg:8, speed:130, up:175, n:4,
+           windup:0.46, recover:0.50, r:13, life:3.6, poison:{dps:1.0, dur:3} },
+    art:{ style:"spot", body:"#E8809A", cap:"#C4506E", pom:"#F2A0B7", trim:"#FBF1D8", weapon:"#C4506E" },
+    accent:"#E8809A" },
+
+  { id:"oomatsu", name:"王茸", role:"BOSS", skill:"王の一閃",
+    hp:260, speed:50, dmg:20, reach:154,
+    atkGauge:2.30, guardGauge:99, windup:0.50, active:0.22, recover:0.52,
+    guardTime:0.5, parryWindow:0.10,
+    shot:{ name:"香気の雨", kind:"lob", gauge:3.2, dmg:9, speed:140, up:180, n:4,
+           windup:0.42, recover:0.46, r:12, life:3.6 },
+    art:{ style:"stripe", body:"#C3B2EF", cap:"#8C74C8", pom:"#8C74C8", trim:"#FAF5E8", weapon:"#8C74C8" },
+    accent:"#C3B2EF" },
+];
+
+/* Lv3=1体目, Lv6=2体目, Lv9=3体目、以降は一巡して再登場。
+   強さは「何体目のボスか」だけで決まる（顔ぶれで難易度が上下しないように）。
+   3体の素の数値をほぼ揃えてあるのはこのため。 */
+function bossFor(lv){
+  const tier = Math.max(1, Math.round(lv/BOSS_EVERY));       // 1,2,3,4...
+  const base = BOSSES[(tier-1) % BOSSES.length];
+  const g = tier - 1;
+  const b = Object.assign({}, base, {
+    hp:       Math.round(base.hp    * (1 + g*0.16)),
+    dmg:      Math.round(base.dmg   * (1 + g*0.07)),
+    speed:    Math.round(base.speed * (1 + g*0.04)),
+    atkGauge: +(base.atkGauge / (1 + g*0.04)).toFixed(2),
+    tier,
+  });
+  if(tier > BOSSES.length) b.name = base.name + "・" + "二三四五六七八九".charAt(Math.min(7, Math.floor(g/BOSSES.length)-1+1)) + "の型";
+  return b;
+}
+const partySize = lv => (lv >= BOSS_EVERY*2 ? 3 : 2);
+
+/* ボスの当たり判定は体の大きさに合わせて広い */
+const BOSS_BOX = { halfW: CHAR_W, top: -CHAR_H*3, bot: -4 };
 
 /* ---------- 敵のレベル ----------------------------------------------
    Lv.1 は反応が鈍く滅多にガードしない。Lv.10 でこれまでのCPU
@@ -791,6 +880,89 @@ function drawKO(g, A){
   g.restore();
 }
 
+
+/* ---------- ボスの描画：横2キャラ分 × 縦3キャラ分 ----------
+   通常キャラを引き伸ばすと間延びするので、別の組み立てにしてある：
+   大きな傘＋太く長い柄。顔は柄の上に付く。 */
+function drawBoss(g, f, x, y){
+  const A = f.s.art, W = CHAR_W, H = CHAR_H*3;      // 126 × 231
+  g.save(); g.translate(x, y); g.scale(f.dir, 1);
+
+  // 影
+  g.save(); g.globalAlpha=.3; g.fillStyle="#000";
+  g.beginPath(); g.ellipse(0,0,W*0.9,9,0,0,7); g.fill(); g.restore();
+
+  if(f.dead){ drawBossKO(g, A, W, H); g.restore(); return; }
+
+  const stipeW = 30, stipeTop = -H*0.62;
+  // 脚
+  [[-20,-8,-0.2],[20,-8,0.2]].forEach(([lx,ly,rot])=>{
+    g.save(); g.translate(lx,ly); g.rotate(rot);
+    g.beginPath(); g.ellipse(0,0,15,17,0,0,7); paint(g,A.body,3.4); g.restore();
+  });
+  // 奥の腕
+  g.beginPath(); g.ellipse(-stipeW-14, stipeTop*0.55, 15, 14, 0, 0, 7); paint(g,A.body,3.4);
+  // 柄（体）
+  g.beginPath(); g.roundRect(-stipeW, stipeTop, stipeW*2, -stipeTop-6, 16);
+  paint(g, ART.face, 3.6);
+  // 傘
+  g.beginPath(); g.ellipse(0, stipeTop+6, W, H*0.19, 0, Math.PI, 0);
+  paint(g, A.cap, 3.6);
+  g.save();
+  g.beginPath(); g.ellipse(0, stipeTop+6, W, H*0.19, 0, Math.PI, 0); g.clip();
+  if(A.style==="spot"){
+    [[-70,-22,13],[-30,-34,15],[16,-33,14],[58,-20,12],[-6,-12,10]].forEach(([sx,sy,r])=>{
+      g.beginPath(); g.ellipse(sx, stipeTop+6+sy, r, r*0.9, 0, 0, 7); paint(g,A.trim,2.6); });
+  } else {
+    g.fillStyle=A.trim;
+    [-96,-40,16,72].forEach(sx=> g.fillRect(sx, stipeTop-40, 24, 50));
+  }
+  g.restore();
+  // 傘のふち
+  ink(g,3.6); g.beginPath(); g.moveTo(-W, stipeTop+6); g.lineTo(W, stipeTop+6); g.stroke();
+
+  // 顔（柄の上）
+  g.save(); g.translate(0, stipeTop+52); g.scale(1.35,1.35);
+  ink(g,5.5);
+  g.beginPath(); g.moveTo(-19,-13); g.lineTo(-6,-7); g.moveTo(6,-7); g.lineTo(19,-13); g.stroke();
+  g.save(); g.globalAlpha=.9; g.fillStyle=ART.blush;
+  g.beginPath(); g.ellipse(-17,10,6,4.6,0,0,7); g.fill();
+  g.beginPath(); g.ellipse(17,10,6,4.6,0,0,7); g.fill(); g.restore();
+  [-9,9].forEach(ex=>{
+    g.fillStyle=ART.eye; g.beginPath(); g.ellipse(ex,0,4.4,5.2,0,0,7); g.fill();
+    g.fillStyle="#fff"; g.beginPath(); g.arc(ex+1.4,-1.8,1.6,0,7); g.fill(); });
+  const mw=8, mh=13, my=8;
+  g.save(); g.beginPath(); g.roundRect(-mw,my,mw*2,mh,3); g.clip();
+  g.fillStyle=ART.tooth; g.fillRect(-mw,my,mw*2,mh);
+  g.fillStyle=ART.mouth; g.fillRect(-mw,my+mh*0.28,mw*2,mh*0.44); g.restore();
+  g.beginPath(); g.roundRect(-mw,my,mw*2,mh,3); ink(g,2.6); g.stroke();
+  g.restore();
+
+  // 前の腕＋大剣
+  g.save(); g.translate(stipeW+16, stipeTop*0.55);
+  g.beginPath(); g.ellipse(0,0,16,15,0,0,7); paint(g,A.body,3.4);
+  g.save(); g.scale(2.1,2.1); drawSword(g, A.weapon, f.swing); g.restore();
+  g.restore();
+
+  g.restore();
+}
+function drawBossKO(g, A, W, H){
+  g.save(); g.translate(0,-H*0.18); g.scale(1,0.7);
+  [-2.05,-1.3,-0.45,0.45,1.3,2.05].forEach(a=>{
+    g.save(); g.rotate(a);
+    g.beginPath(); g.moveTo(-14,8);
+    g.quadraticCurveTo(-26,60,-28,112); g.lineTo(20,116);
+    g.quadraticCurveTo(20,64,16,8); g.closePath();
+    paint(g,A.body,3.4); g.restore();
+  });
+  g.beginPath(); g.ellipse(0,0,46,42,0,0,7); paint(g,ART.face,3.4);
+  ink(g,4);
+  [-18,18].forEach(ex=>{ g.beginPath();
+    g.moveTo(ex-9,-16); g.lineTo(ex+9,-3); g.moveTo(ex+9,-16); g.lineTo(ex-9,-3); g.stroke(); });
+  ink(g,3); g.beginPath(); g.moveTo(-12,13); g.quadraticCurveTo(0,23,12,13); g.stroke();
+  g.restore();
+}
+
 /* ---------- 胞子紋ゲージ（シグネチャ要素） ---------- */
 function drawSporeGauge(g, cx, cy, r, pct, color, dimColor){
   g.save(); g.translate(cx,cy);
@@ -822,15 +994,23 @@ class Fighter{
     this.flash = 0; this.swing = 0; this.hurtLim = RULES.hurtTime;
     this.stunLim = RULES.parryStun;
     this.dmgScale = 1;                 // 敵のレベルで与ダメージが変わる
+    this.team = isPlayer? 0 : 1;       // 0=こちら 1=敵。味方同士は当たらない
+    this.big = false;                  // ボスは巨体
+    this.box = {halfW:RULES.hitHalfW, top:RULES.hitTop, bot:RULES.hitBot};
+    this.hitList = null;               // 巨体の攻撃は範囲内の全員に当たる
     this.special = null;               // 使用中のスペシャル武器
     this.wasReady = {atk:false, grd:false, sht:false};   // 満タンになった瞬間だけ鳴らす
   }
   get busy(){ return this.state!=="walk"; }
+  get dead(){ return this.hp<=0; }
   get ready(){ return {a:this.atk>=1, g:this.grd>=1, s:this.sht>=1}; }
 
   tryAttack(){ if(this.state!=="walk"||this.atk<1) return false;
     this.atk=0; this.state="windup"; this.t=0; this.hitDone=false; SFX.swing(); return true; }
+  // 背中を向けていたら防げない。剣は前にしか出ないので、防御も前だけ
+  canGuard(){ const o = nearestFoe(this); return !o || this.facing(o); }
   tryGuard(){ if(this.state!=="walk"||this.grd<1) return false;
+    if(!this.canGuard()) return false;
     this.grd=0; this.state="guard"; this.t=0; SFX.guard(); return true; }
   tryShot(){ if(this.state!=="walk"||this.sht<1) return false;
     this.sht=0; this.state="cast"; this.t=0; this.shotDone=false; return true; }
@@ -856,14 +1036,21 @@ class Fighter{
       this.swing = 0;
     }
     else if(this.state==="windup"){ this.swing = -(this.t/S.windup)*0.55;
-      if(this.t>=S.windup){ this.state="active"; this.t=0; } }
+      if(this.t>=S.windup){ this.state="active"; this.t=0; this.hitList = this.big? new Set() : null; } }
     else if(this.state==="active"){ this.swing = 0.35 + (this.t/S.active)*0.65;
       if(this.t>=S.active){ this.state="recover"; this.t=0; } }
     else if(this.state==="recover"){ this.swing = 1.0 - (this.t/S.recover);
       if(this.t>=S.recover){ this.state="walk"; this.t=0; } }
     else if(this.state==="cast"){ this.swing = -0.35 - (this.t/S.shot.windup)*0.25;
       if(this.t>=S.shot.windup){                 // 撃つ
-        if(!this.shotDone){ this.shotDone=true; shots.push(new Shot(this)); SFX.shot(S.shot.kind); }
+        if(!this.shotDone){ this.shotDone=true;
+          const n = S.shot.n || 1;
+          for(let i=0;i<n;i++){
+            const sh = new Shot(this);
+            if(n>1) sh.vx = this.dir * S.shot.speed * (0.55 + i*0.42);   // 前後にばら撒く
+            shots.push(sh);
+          }
+          SFX.shot(S.shot.kind); }
         this.state="castRec"; this.t=0; } }
     else if(this.state==="castRec"){ this.swing = -0.6 + (this.t/S.shot.recover)*0.6;
       if(this.t>=S.shot.recover){ this.state="walk"; this.t=0; } }
@@ -924,9 +1111,9 @@ class Shot{
     if(this.dy > -3) this.dead = true;   // 山なり弾は地面で消える
   }
   hits(f){
-    if(f===this.owner) return false;
-    return Math.abs(this.x - f.x) < RULES.hitHalfW + this.s.r*0.5
-        && this.dy > RULES.hitTop && this.dy < RULES.hitBot;
+    if(f===this.owner || f.team===this.owner.team || f.dead) return false;
+    return Math.abs(this.x - f.x) < f.box.halfW + this.s.r*0.5
+        && this.dy > f.box.top && this.dy < f.box.bot;
   }
 }
 
@@ -945,7 +1132,8 @@ function fireSpecial(f, w){
     shots.push(new Shot(f, w.shot));
   } else if(w.kind==="strike"){
     // 距離に関係なく相手の真上から落ちる。ガードには完全に消される
-    const foe = (f===P)? C : P;
+    const foe = nearestFoe(f);
+    if(!foe) return;
     bolts.push({x:foe.x, t:0});
     if(foe.state==="guard"){ foe.grd = Math.min(1, foe.grd + RULES.shotParryRefund); SFX.block();
       say(`${w.name}をガード！ 完全に防いだ`); }
@@ -960,22 +1148,57 @@ function fireSpecial(f, w){
 const $ = id => document.getElementById(id);
 const cv = $("stage"), g = cv.getContext("2d");
 let P, C, timeLeft, running=false, last=0, logT=0, cpuTimer=0, cpuIntent=null;
+let party = [], foes = [], bossFight = false, actIdx = 0;
 let pick = 0, cpuPick = 1, lastSec = 0, selSlot = 0, resultShown = false;
 let cpuProf = cpuProfile(SAVE.level);
 
+function nearestFoe(f){
+  const list = (f.team===0) ? foes : party;
+  let best=null, bd=1e9;
+  for(const o of list){ if(o.dead) continue;
+    const d=Math.abs(o.x-f.x); if(d<bd){ bd=d; best=o; } }
+  return best;
+}
+const alive = arr => arr.filter(f=>!f.dead);
+
 function begin(){
-  P = new Fighter(SPECIES[pick], RULES.wallL+80, 1, true);
-  C = new Fighter(SPECIES[cpuPick], RULES.wallR-80, -1, false);
-  cpuProf = cpuProfile(SAVE.level);
-  C.dmgScale = cpuProf.dmg;
-  C.maxHp = Math.round(C.maxHp * cpuProf.hp); C.hp = C.maxHp;
-  shots = []; bolts = []; selSlot = 0; resultShown = false;
+  const lv = SAVE.level;
+  bossFight = isBossLevel(lv);
+  cpuProf = cpuProfile(lv);
+  shots = []; bolts = []; selSlot = 0; resultShown = false; actIdx = 0;
+  party = []; foes = [];
+
+  if(bossFight){
+    const n = partySize(lv);                       // 2〜3体で挑む
+    for(let i=0;i<n;i++){
+      const sp = SPECIES[(pick+i) % SPECIES.length];
+      const m = new Fighter(sp, RULES.wallL + 56 + i*52, 1, true);
+      party.push(m);
+    }
+    const B = bossFor(lv);
+    const b = new Fighter(B, RULES.wallR - 110, -1, false);
+    b.big = true; b.box = BOSS_BOX;
+    b.dmgScale = cpuProf.dmg;
+    b.maxHp = Math.round(B.hp * cpuProf.hp); b.hp = b.maxHp;
+    foes.push(b);
+  } else {
+    party.push(new Fighter(SPECIES[pick], RULES.wallL+80, 1, true));
+    const c = new Fighter(SPECIES[cpuPick], RULES.wallR-80, -1, false);
+    c.dmgScale = cpuProf.dmg;
+    c.maxHp = Math.round(c.maxHp * cpuProf.hp); c.hp = c.maxHp;
+    foes.push(c);
+  }
+  P = party[0]; C = foes[0];
+
   timeLeft = RULES.roundTime; running = true; logT=0; cpuTimer=0; cpuIntent=null;
-  $("nmL").innerHTML = P.s.name + '<em>YOU</em>';
-  $("nmR").innerHTML = `<em>Lv.${SAVE.level}</em>` + C.s.name;
+  buildPanels();
+  $("nmL").innerHTML = bossFight
+    ? `${party.length}体<em>YOU</em>` : P.s.name + '<em>YOU</em>';
+  $("nmR").innerHTML = `<em>Lv.${lv}${bossFight?" BOSS":""}</em>` + C.s.name;
   renderBag();
-  show("scFight"); fitStage(); say("交錯を待て");
-  lastSec = RULES.roundTime; BGM.setMode("fight"); BGM.start();
+  show("scFight"); fitStage();
+  say(bossFight? `${C.s.name} 出現` : "交錯を待て");
+  lastSec = RULES.roundTime; BGM.setMode(bossFight? "tense" : "fight"); BGM.start();
   last = performance.now(); requestAnimationFrame(loop);
 }
 
@@ -988,36 +1211,48 @@ function loop(now){
 function step(dt){
   timeLeft -= dt;
   logT = Math.max(0, logT-dt);
-  cpuThink(dt);
+  aiThink(dt);
 
-  P.update(dt, C); C.update(dt, P);
+  for(const f of party) if(!f.dead) f.update(dt, nearestFoe(f));
+  for(const f of foes)  if(!f.dead) f.update(dt, nearestFoe(f));
 
   // ゲージが満タンになった瞬間だけ合図を鳴らす（3本を音の高さで区別）
-  ["atk","grd","sht"].forEach(k=>{
-    const full = P[k]>=1;
-    if(full && !P.wasReady[k]) SFX.ready(k);
-    P.wasReady[k] = full;
-  });
+  for(const m of party){
+    if(m.dead) continue;
+    ["atk","grd","sht"].forEach(k=>{
+      const full = m[k]>=1;
+      if(full && !m.wasReady[k]) SFX.ready(k);
+      m.wasReady[k] = full;
+    });
+  }
   // 残り5秒の秒読み。BGMも締めに入る
   const sec = Math.ceil(timeLeft);
   if(sec!==lastSec){ if(sec<=5 && sec>0) SFX.tick(); lastSec = sec; }
   if(timeLeft<=15 && BGM.mode==="fight") BGM.setMode("tense");
 
-  // ── 衝突：歩行中の者は互いに反転
-  const d = Math.abs(P.x - C.x);
-  if(d < RULES.bodyGap){
-    const s = Math.sign(P.x - C.x) || 1;
-    if(P.state==="walk") P.dir = s;
-    if(C.state==="walk") C.dir = -s;
-    P.x += s*1.6; C.x -= s*1.6;
+  // ── 衝突：敵とだけ弾き合う（味方同士はすり抜ける。詰まると何もできなくなるため）
+  for(const m of party){ if(m.dead) continue;
+    for(const o of foes){ if(o.dead) continue;
+      const gap = o.big ? RULES.bodyGap + CHAR_W*0.5 : RULES.bodyGap;
+      if(Math.abs(m.x-o.x) < gap){
+        const sgn = Math.sign(m.x-o.x) || 1;
+        if(m.state==="walk") m.dir = sgn;
+        if(o.state==="walk") o.dir = -sgn;
+        m.x = clampX(m.x + sgn*1.6);
+        if(!o.big) o.x = clampX(o.x - sgn*1.6);   // ボスは押し返されない
+      }
+    }
   }
 
-  // ── 判定
-  resolve(P, C); resolve(C, P);
+  // ── 判定：味方→敵、敵→味方（巨体の一撃は範囲内の全員に当たる）
+  for(const m of party){ if(m.dead) continue;
+    for(const o of foes) if(!o.dead) resolve(m, o); }
+  for(const o of foes){ if(o.dead) continue;
+    for(const m of party) if(!m.dead) resolve(o, m); }
   stepShots(dt);
 
-  // ── 決着
-  if(P.hp<=0 || C.hp<=0 || timeLeft<=0) finish();
+  // ── 決着：こちらが全滅 or 敵が全滅 or 時間切れ
+  if(alive(party).length===0 || alive(foes).length===0 || timeLeft<=0) finish();
 }
 
 /* ---------- 飛び道具の進行と当たり ---------- */
@@ -1025,7 +1260,7 @@ function stepShots(dt){
   for(const sh of shots){
     sh.update(dt);
     if(sh.dead) continue;
-    for(const f of [P,C]){ if(sh.hits(f)){ hitByShot(sh, f); break; } }
+    for(const f of party.concat(foes)){ if(sh.hits(f)){ hitByShot(sh, f); break; } }
   }
   // 弾同士の相殺（撃ち合いに意味を持たせる）
   for(let i=0;i<shots.length;i++) for(let j=i+1;j<shots.length;j++){
@@ -1067,14 +1302,17 @@ function resolve(a, b){
   // 通常の斬りとスペシャルの大振りは、間合とダメージが違うだけで扱いは同じ
   const sp = (a.state==="spActive") ? a.special : null;
   if(a.state!=="active" && !sp) return;
-  if(a.hitDone) return;
+  if(a.big){                       // 巨体の薙ぎは範囲内の全員をまとめて薙ぐ
+    if(!a.hitList) a.hitList = new Set();
+    if(a.hitList.has(b)) return;
+  } else if(a.hitDone) return;
   const reach = sp ? sp.reach : a.s.reach;
   const dmg   = (sp ? sp.dmg : a.s.dmg) * a.dmgScale;
   const label = sp ? sp.name : a.s.skill;
 
   const dist = Math.abs(a.x-b.x);
   if(dist > reach || !a.facing(b)) return;
-  a.hitDone = true;
+  if(a.big) a.hitList.add(b); else a.hitDone = true;
   const kb = Math.sign(b.x-a.x)*RULES.knockback;
 
   if(b.state==="guard"){
@@ -1103,28 +1341,34 @@ const clampX = x => Math.max(RULES.wallL, Math.min(RULES.wallR, x));
 function say(t){ $("log").textContent = t; logT = 1.6; }
 
 /* ---------- CPU ---------- */
-function cpuThink(dt){
+function aiThink(dt){
   cpuTimer -= dt;
-  if(C.state!=="walk") return;
   if(cpuTimer>0) return;
   cpuTimer = cpuProf.react*(0.7+Math.random()*0.6);
+  for(const f of foes){ if(f.dead || f.state!=="walk") continue;
+    f.big ? bossThink(f) : cpuThink(f); }
+}
 
+/* 通常のCPU：これまでどおり */
+function cpuThink(C){
+  const P = nearestFoe(C); if(!P) return;
   const dist = Math.abs(P.x-C.x);
   const closing = C.facing(P);
 
-  // 飛んでくる弾は防御でしか止められない
-  if(C.grd>=1){
+  // 飛んでくる弾は防御でしか止められない（背中を向けていたら防げない）
+  if(C.grd>=1 && C.canGuard()){
     let best = null;
     for(const sh of shots){
-      if(sh.owner===C) continue;
-      if(Math.sign(sh.vx || sh.dir) !== Math.sign(C.x - sh.x)) continue;  // 近づいてくる弾だけ
-      const tta = (Math.abs(sh.x-C.x) - RULES.hitHalfW) / Math.max(40, Math.abs(sh.vx));
+      if(sh.owner.team===C.team) continue;
+      if(Math.sign(sh.vx || sh.dir) !== Math.sign(C.x - sh.x)) continue;
+      const tta = (Math.abs(sh.x-C.x) - C.box.halfW) / Math.max(40, Math.abs(sh.vx));
       if(tta>=0 && (best===null || tta<best)) best = tta;
     }
-    if(best!==null && best < Math.min(0.34, C.s.guardTime*0.55) && Math.random()<cpuProf.pGuard){ C.tryGuard(); return; }
+    if(best!==null && best < Math.min(0.34, C.s.guardTime*0.55) && Math.random()<cpuProf.pGuard){
+      C.tryGuard(); return; }
   }
   // 相手の振りかぶりを見てから防御
-  if(P.state==="windup" && C.grd>=1 && dist < P.s.reach+60){
+  if(P.state==="windup" && C.grd>=1 && dist < P.s.reach+60 && C.canGuard()){
     const remain = P.s.windup - P.t;
     if(remain < C.s.parryWindow*0.9 + 0.06 && Math.random() < cpuProf.guard){ C.tryGuard(); return; }
   }
@@ -1143,6 +1387,18 @@ function cpuThink(dt){
   }
 }
 
+/* ボス：防御しない。薙ぎ払いと胞子の雨だけを撃ち分ける。
+   振りかぶりが長いので、こちらは「見てから防御」が間に合う。 */
+function bossThink(B){
+  const t = nearestFoe(B); if(!t) return;
+  const dist = Math.abs(t.x - B.x);
+  const closing = B.facing(t);
+  // 近ければ薙ぎ払い（範囲内の味方はまとめて巻き込む）
+  if(B.atk>=1 && closing && dist < B.s.reach*1.15){ B.tryAttack(); return; }
+  // 遠ければ雨。山なりなので近距離では撃たない
+  if(B.sht>=1 && closing && dist > B.s.reach*0.9){ B.tryShot(); return; }
+}
+
 /* ---------- 画面いっぱいに合わせる ---------- */
 /* 横幅（＝壁の間隔）は 480 で固定。バランスに直結するので画面で変えない。
    代わりに高さだけ画面比に合わせて伸ばし、余白を作らず全面を使う。 */
@@ -1151,13 +1407,16 @@ function fitStage(){
   const box = cv.parentElement.getBoundingClientRect();
   const dpr = Math.min(2, window.devicePixelRatio||1);
   const cssW = Math.max(240, box.width), cssH = Math.max(120, box.height);
-  RULES.arenaH = Math.max(180, Math.min(460, Math.round(RULES.arenaW*cssH/cssW)));
+  // ボスは縦3キャラ分（231）ある。頭が切れないよう最低の高さを上げる
+  const minH = bossFight ? CHAR_H*3 + 70 : 180;
+  RULES.arenaH = Math.max(minH, Math.min(460, Math.round(RULES.arenaW*cssH/cssW)));
   RULES.floorY = RULES.arenaH - 38;
   cv.style.width = cssW+"px"; cv.style.height = cssH+"px";
   cv.width  = Math.round(cssW*dpr);
   cv.height = Math.round(cssH*dpr);
-  view.scale = cv.width/RULES.arenaW;
-  view.ox = 0;
+  // 横だけで合わせると縦がはみ出すことがあるので、両方に収まる倍率を採る
+  view.scale = Math.min(cv.width/RULES.arenaW, cv.height/RULES.arenaH);
+  view.ox = (cv.width  - RULES.arenaW*view.scale)/2;
   view.oy = (cv.height - RULES.arenaH*view.scale)/2;
 }
 addEventListener("resize", ()=>{ if(!$("scFight").classList.contains("hide")){ fitStage(); if(P) render(); } });
@@ -1185,15 +1444,17 @@ function render(){
   [RULES.wallL,RULES.wallR].forEach(x=>{ g.beginPath(); g.moveTo(x,F-74); g.lineTo(x,F); g.stroke(); });
 
   // 間合いリング（プレイヤーが振れる距離）
-  if(P.ready.a && P.state==="walk"){
+  const lead = party[actIdx] || party[0];
+  if(lead && !lead.dead && lead.ready.a && lead.state==="walk"){ const P = lead;
     g.save(); g.globalAlpha=.22; g.strokeStyle="#B06A3B"; g.setLineDash([3,5]); g.lineWidth=1;
     g.beginPath(); g.moveTo(P.x+P.dir*P.s.reach, F-58); g.lineTo(P.x+P.dir*P.s.reach, F); g.stroke();
     g.restore();
   }
 
-  [C,P].forEach(f=>{
+  foes.concat(party).forEach(f=>{
     if(f.flash>0){ g.save(); g.globalAlpha=Math.min(.40,f.flash*.5);
-      g.fillStyle="#D08A92"; g.beginPath(); g.arc(f.x,F-34,30,0,7); g.fill(); g.restore(); }
+      g.fillStyle="#D08A92"; g.beginPath();
+      g.arc(f.x, F+(f.big? -CHAR_H*1.4 : -34), f.big? 80 : 30, 0, 7); g.fill(); g.restore(); }
     if(f.state==="guard"){
       const just = f.t<=f.s.parryWindow;
       g.save(); g.strokeStyle= just? "#EDE4CC":"#7C8F4E";
@@ -1201,19 +1462,23 @@ function render(){
       g.beginPath(); g.arc(f.x, F-30, 32, f.dir>0? -1.4:1.75, f.dir>0? 1.4:4.55); g.stroke(); g.restore();
     }
     if(f.state==="stun"){ g.fillStyle="#D08A92"; g.font="600 13px "+getComputedStyle(document.body).fontFamily;
-      g.textAlign="center"; g.fillText("★", f.x, F-78); }
+      g.textAlign="center"; g.fillText("★", f.x, F-(f.big? CHAR_H*3+10 : 78)); }
     if(f.poison>0){ g.save(); g.globalAlpha=.5; g.fillStyle="#7C8F4E";
       for(let i=0;i<3;i++){ const p=(performance.now()/700+i/3)%1;
         g.beginPath(); g.arc(f.x-8+i*8, F-16-p*54, 2.2, 0, 7); g.fill(); } g.restore(); }
-    drawMushroom(g, f.s, f.x, F, 1, f.dir, {
-      swing:f.swing, ko:f.hp<=0,
+
+    if(f.big){ drawBoss(g, f, f.x, F); }
+    else drawMushroom(g, f.s, f.x, F, 1, f.dir, {
+      swing:f.swing, ko:f.dead,
       shout:f.state==="windup"||f.state==="active"||f.state==="hurt"||f.state==="cast",
     });
+
     // 溜め中の胞子玉
     if(f.state==="cast"){
       const p = Math.min(1, f.t/f.s.shot.windup);
       g.save(); g.globalAlpha=.4+p*.6; g.fillStyle=f.s.art.body;
-      g.beginPath(); g.arc(f.x+f.dir*26, F+RULES.muzzleY, 2+p*f.s.shot.r, 0, 7); g.fill();
+      g.beginPath(); g.arc(f.x+f.dir*(f.big?60:26), F+(f.big? -CHAR_H*1.9 : RULES.muzzleY),
+                           2+p*f.s.shot.r*(f.big?2:1), 0, 7); g.fill();
       g.restore();
     }
     // スペシャルの溜め（武器色の輪が締まる）
@@ -1230,6 +1495,14 @@ function render(){
                                                       f.dir>0? -0.9+p*1.9 : 2.2-p*1.9); g.stroke();
       g.restore();
     }
+    // ボスの薙ぎ払い
+    if(f.big && f.state==="active"){
+      const p = f.t/f.s.active;
+      g.save(); g.globalAlpha=.6*(1-p); g.strokeStyle=f.s.art.weapon; g.lineWidth=14; g.lineCap="round";
+      g.beginPath(); g.arc(f.x, F-CHAR_H, f.s.reach*0.8, f.dir>0? -1.4+p*1.8 : 1.7-p*1.8,
+                                                          f.dir>0? -0.7+p*1.8 : 2.4-p*1.8); g.stroke();
+      g.restore();
+    }
   });
 
   shots.forEach(sh=>drawShot(g, sh));
@@ -1244,17 +1517,26 @@ function render(){
 
   // ラベル
   g.font="500 9px ui-monospace,monospace"; g.textAlign="center";
-  g.fillStyle="#6E6880"; g.fillText("YOU", P.x, RULES.floorY+15);
+  party.forEach((m,i)=>{
+    if(m.dead) return;
+    g.fillStyle = (bossFight && i===actIdx) ? "#EDE4CC" : "#6E6880";
+    g.fillText(bossFight? String(i+1) : "YOU", m.x, RULES.floorY+15);
+  });
 
   // HUD
-  $("hpL").style.width = (P.hp/P.maxHp*100)+"%";
+  const pHp = party.reduce((a,m)=>a+m.hp,0), pMax = party.reduce((a,m)=>a+m.maxHp,0);
+  $("hpL").style.width = (pHp/pMax*100)+"%";
   $("hpR").style.width = (C.hp/C.maxHp*100)+"%";
   $("clock").textContent = Math.max(0,Math.ceil(timeLeft));
   $("clock").classList.toggle("low", timeLeft<=15);
   if(logT<=0) $("log").innerHTML="&nbsp;";
-  paintPad("padA", P.atk, "#B06A3B");
-  paintPad("padG", P.grd, "#7C8F4E");
-  paintPad("padS", P.sht, "#C6A24A");
+
+  if(bossFight) paintPanels();
+  else {
+    paintPad("padA", P.atk, "#B06A3B");
+    paintPad("padG", P.grd, "#7C8F4E");
+    paintPad("padS", P.sht, "#C6A24A");
+  }
 }
 
 /* ---------- 弾の描画：種ごとに軌道が違うので見た目も変える ---------- */
@@ -1286,6 +1568,53 @@ function drawShot(g, sh){
   }
   g.restore();
 }
+/* ---------- ボス戦：味方ごとの操作パネル ----------
+   1体につき 攻/防/飛/特 の4つ。番号キー(1〜3)で操作対象を切り替えられる。 */
+function buildPanels(){
+  const box = $("panels");
+  box.classList.toggle("hide", !bossFight);
+  $("pads").classList.toggle("hide", bossFight);
+  box.innerHTML = "";
+  if(!bossFight) return;
+  party.forEach((m,i)=>{
+    const el = document.createElement("div");
+    el.className = "panel";
+    el.innerHTML = `
+      <div class="phead">
+        <span class="n">${i+1}</span>
+        <span class="nm2" style="color:${m.s.accent}">${m.s.name}</span>
+        <span class="hp2"><b></b></span>
+      </div>
+      <div class="prow">
+        <button class="mini a" type="button">攻<i></i></button>
+        <button class="mini g" type="button">防<i></i></button>
+        <button class="mini s" type="button">飛<i></i></button>
+        <button class="mini w" type="button">特</button>
+      </div>`;
+    const [ba,bg,bs,bw] = el.querySelectorAll("button");
+    const use = fn => e=>{ e.preventDefault(); actIdx=i; fn(m); paintPanels(); };
+    ba.addEventListener("pointerdown", use(attack));
+    bg.addEventListener("pointerdown", use(guard));
+    bs.addEventListener("pointerdown", use(shot));
+    bw.addEventListener("pointerdown", use(special));
+    box.appendChild(el);
+  });
+}
+function paintPanels(){
+  const els = $("panels").children;
+  party.forEach((m,i)=>{
+    const el = els[i]; if(!el) return;
+    el.classList.toggle("act", i===actIdx);
+    el.classList.toggle("ko", m.dead);
+    el.querySelector(".hp2 b").style.width = (m.hp/m.maxHp*100)+"%";
+    const [ba,bg,bs,bw] = el.querySelectorAll("button");
+    const set = (b,v)=>{ b.querySelector("i").style.width = Math.min(1,v)*100+"%";
+                         b.classList.toggle("ready", v>=1); b.disabled = m.dead; };
+    set(ba, m.atk); set(bg, m.grd); set(bs, m.sht);
+    bw.disabled = m.dead || !currentWeapon();
+  });
+}
+
 /* ---------- 手持ちと特殊ボタン ---------- */
 function renderBag(){
   const el = $("bag"); el.innerHTML = "";
@@ -1312,31 +1641,19 @@ function currentWeapon(){
   const i = SAVE.bag.findIndex(x=>wep(x));
   return i>=0 ? {w:wep(SAVE.bag[i]), i} : null;
 }
-function special(){
-  if(!running) return;
-  const cur = currentWeapon();
-  if(!cur){ say("スペシャル武器がない"); return; }
-  if(P.state!=="walk"){ return; }
-  if(P.trySpecial(cur.w)){
-    SAVE.bag.splice(cur.i,1); SAVE.save();          // 1回使うと消える
-    selSlot = Math.min(selSlot, Math.max(0, SAVE.bag.length-1));
-    renderBag(); say(`${cur.w.name}！`);
-  }
-}
 
 function paintPad(id, pct, col){
   const el=$(id), c=el.querySelector("canvas"), x=c.getContext("2d");
   x.clearRect(0,0,84,84); drawSporeGauge(x,42,42,30,pct,col,"#3A3547");
   el.classList.toggle("ready", pct>=1);
 }
-function shot(){ if(running && !P.tryShot() && P.state==="walk") say("ゲージ不足"); }
 
 /* ---------- 決着 ---------- */
 function finish(){
   if(!running) return;
   running=false;
   // 撃沈の姿勢を1フレーム描いてから結果へ（時間切れは待たせない）
-  const ko = P.hp<=0 || C.hp<=0;
+  const ko = alive(party).length===0 || alive(foes).length===0;
   BGM.setMode("menu");
   if(ko) SFX.ko();
   render();
@@ -1345,14 +1662,18 @@ function finish(){
 function showResult(){
   if(resultShown) return;      // レベルとガチャは1試合につき1回だけ
   resultShown = true;
-  const pr=P.hp/P.maxHp, cr=C.hp/C.maxHp;
-  const win = C.hp<=0 && P.hp>0 ? 1 : P.hp<=0 && C.hp>0 ? -1 : (pr>cr?1:pr<cr?-1:0);
+  const pHp = party.reduce((a,m)=>a+m.hp,0), pMax = party.reduce((a,m)=>a+m.maxHp,0);
+  const cHp = foes.reduce((a,f)=>a+f.hp,0),  cMax = foes.reduce((a,f)=>a+f.maxHp,0);
+  const pr = pHp/pMax, cr = cHp/cMax;
+  const win = cHp<=0 && pHp>0 ? 1 : pHp<=0 && cHp>0 ? -1 : (pr>cr?1:pr<cr?-1:0);
   $("resultText").textContent = win>0? "勝　利" : win<0? "敗　北" : "引　分";
   $("resultText").style.color = win>0? "var(--cream)" : win<0? "var(--pink)" : "var(--dim)";
   if(win>0) SFX.win(); else if(win<0) SFX.lose();
 
-  let sub = `${P.s.name} ${Math.round(P.hp)}/${P.maxHp}  ―  Lv.${SAVE.level} ${C.s.name} ${Math.round(C.hp)}/${C.maxHp}`
-          + (timeLeft<=0 ? "  (時間切れ判定)" : "");
+  let sub = (bossFight
+      ? `味方${party.length}体 ${Math.round(pHp)}/${pMax}  ―  ${C.s.name} ${Math.round(cHp)}/${cMax}`
+      : `${P.s.name} ${Math.round(pHp)}/${pMax}  ―  Lv.${SAVE.level} ${C.s.name} ${Math.round(cHp)}/${cMax}`)
+    + (timeLeft<=0 ? "  (時間切れ判定)" : "");
   if(win>0){                       // 勝ったら敵が1つ強くなる＋ガチャ
     SAVE.level = Math.min(99, SAVE.level+1); SAVE.save();
     sub += `  →  次は Lv.${SAVE.level}`;
@@ -1422,8 +1743,10 @@ function renderStatus(){
     return w? `<span class="slot" style="color:${w.color}" title="${w.name}">${w.mark}</span>`
             : `<span class="slot">・</span>`;
   }).join("");
+  const bossNext = isBossLevel(SAVE.level);
   $("status").innerHTML =
     `敵のレベル <b>${SAVE.level}</b>　勝つと上がる` +
+    (bossNext ? `<span style="color:var(--pink)">▲ ボス戦（味方${partySize(SAVE.level)}体）</span>` : "") +
     `<span style="margin-left:6px">スペシャル ${slots} ${SAVE.bag.length}/${BAG_MAX}</span>` +
     `<button class="reset" id="resetBtn">記録を消す</button>`;
   $("resetBtn").onclick = ()=>{
@@ -1476,9 +1799,29 @@ function refreshSel(){
 }
 function show(id){ ["scSelect","scFight","scEnd"].forEach(s=> $(s).classList.toggle("hide", s!==id)); }
 
-/* ---------- 入力 ---------- */
-function attack(){ if(running && !P.tryAttack() && P.state==="walk") say("ゲージ不足"); }
-function guard(){ if(running && !P.tryGuard() && P.state==="walk") say("ゲージ不足"); }
+/* ---------- 入力 ----------
+   通常戦は P（1体）、ボス戦は操作中の1体に対して働く。 */
+function actor(){ const m = party[actIdx]; return (m && !m.dead) ? m : alive(party)[0]; }
+
+function attack(m){ m = m || actor(); if(!running || !m) return;
+  if(!m.tryAttack() && m.state==="walk") say("ゲージ不足"); }
+function guard(m){ m = m || actor(); if(!running || !m) return;
+  if(m.state==="walk" && !m.canGuard()){ say(`${m.s.name} 背を向けている 防げない`); return; }
+  if(!m.tryGuard() && m.state==="walk") say("ゲージ不足"); }
+function shot(m){ m = m || actor(); if(!running || !m) return;
+  if(!m.tryShot() && m.state==="walk") say("ゲージ不足"); }
+function special(m){
+  m = m || actor(); if(!running || !m) return;
+  const cur = currentWeapon();
+  if(!cur){ say("スペシャル武器がない"); return; }
+  if(m.state!=="walk") return;
+  if(m.trySpecial(cur.w)){
+    SAVE.bag.splice(cur.i,1); SAVE.save();          // 1回使うと消える
+    selSlot = Math.min(selSlot, Math.max(0, SAVE.bag.length-1));
+    renderBag(); say(`${m.s.name} ${cur.w.name}！`);
+  }
+}
+
 ["pointerdown"].forEach(ev=>{
   $("padA").addEventListener(ev, e=>{ e.preventDefault(); attack(); });
   $("padG").addEventListener(ev, e=>{ e.preventDefault(); guard(); });
@@ -1487,16 +1830,13 @@ function guard(){ if(running && !P.tryGuard() && P.state==="walk") say("ゲー�
 });
 addEventListener("keydown", e=>{
   if(e.repeat) return;
+  if(e.key>="1" && e.key<="3"){ const i=+e.key-1;
+    if(party[i]){ e.preventDefault(); actIdx=i; if(bossFight) paintPanels(); } return; }
   if(e.key==="f"||e.key==="F"||e.key==="ArrowLeft"){ e.preventDefault(); attack(); }
   if(e.key==="j"||e.key==="J"||e.key==="ArrowRight"){ e.preventDefault(); guard(); }
   if(e.key==="k"||e.key==="K"||e.key==="ArrowUp"||e.key===" "){ e.preventDefault(); shot(); }
   if(e.key==="l"||e.key==="L"||e.key==="ArrowDown"){ e.preventDefault(); special(); }
 });
-$("sndBtn").onclick = ()=>{     // 消音は取り消し線で示す（.snd[aria-pressed="false"]）
-  SND.setOn(!SND.on);
-  $("sndBtn").setAttribute("aria-pressed", SND.on);
-};
-$("sndBtn").setAttribute("aria-pressed", SND.on);
 $("startBtn").onclick = ()=>{ cpuPick = (pick + 1 + Math.floor(Math.random()*4)) % 5; begin(); };
 $("againBtn").onclick = ()=>{ cpuPick = (pick + 1 + Math.floor(Math.random()*4)) % 5; begin(); };
 $("backBtn").onclick  = ()=>{ BGM.setMode("menu"); renderStatus(); show("scSelect"); };
