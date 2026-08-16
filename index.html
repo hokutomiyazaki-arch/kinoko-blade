@@ -104,7 +104,41 @@ body{
 .pad:active{background:var(--c)!important;color:var(--ink)}
 .pad:disabled{cursor:default}
 .pad canvas{width:38px;height:38px}
-#padA{--c:var(--rust)} #padG{--c:var(--moss)} #padS{--c:var(--ochre)}
+#padA{--c:var(--rust)} #padG{--c:var(--moss)} #padS{--c:var(--ochre)} #padW{--c:var(--cream)}
+.pads{grid-template-columns:repeat(4,1fr)}
+.pad .wmark{font-family:var(--display);font-size:20px;line-height:38px;height:38px;color:var(--w,var(--dim))}
+.pad:disabled{opacity:.45}
+
+/* ---- 手持ち（5枠。使うと消える） ---- */
+.bag{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;flex:0 0 auto}
+.bag button{
+  font-family:var(--display);font-size:15px;padding:6px 2px;cursor:pointer;
+  background:var(--ink-2);border:1px solid var(--ink-3);color:var(--dim);
+}
+.bag button.has{color:var(--w);border-color:var(--w)}
+.bag button.sel{background:var(--ink-3);outline:1px solid var(--cream)}
+.bag button:disabled{cursor:default}
+
+/* ---- 選択画面の状態表示 ---- */
+.status{
+  display:flex;align-items:center;gap:10px;flex:0 0 auto;
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--dim);
+  border-bottom:1px solid var(--ink-3);padding-bottom:6px;margin-bottom:6px;flex-wrap:wrap;
+}
+.status b{color:var(--cream);font-weight:700;font-size:12px}
+.status .slot{font-family:var(--display);font-size:13px;color:var(--dim)}
+.status .reset{margin-left:auto;background:none;border:1px solid var(--ink-3);color:var(--dim);
+  font-family:var(--mono);font-size:9px;letter-spacing:.1em;padding:3px 8px;cursor:pointer}
+.status .reset:hover{border-color:var(--pink);color:var(--pink)}
+
+/* ---- ガチャ ---- */
+.gacha{border:1px solid var(--ink-3);background:var(--ink-2);padding:12px;margin-top:8px}
+.gslot{
+  font-family:var(--display);font-size:40px;text-align:center;height:64px;line-height:64px;
+  color:var(--dim);letter-spacing:.1em;
+}
+.gname{font-family:var(--display);font-size:16px;text-align:center;letter-spacing:.08em;min-height:22px}
+.gdesc{font-size:11px;color:var(--dim);text-align:center;line-height:1.6;min-height:34px;margin-bottom:8px}
 
 .btn{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;background:none;border:1px solid var(--ink-3);color:var(--cream);padding:12px;cursor:pointer;width:100%}
 .btn.go{background:var(--cream);color:var(--ink);border-color:var(--cream);font-weight:700}
@@ -129,9 +163,10 @@ body{
   <!-- ============ SELECT ============ -->
   <section id="scSelect">
     <p class="eyebrow" style="flex:0 0 auto">子実体を選べ / choose your fruiting body</p>
+    <div class="status" id="status"></div>
     <div class="roster" id="roster"></div>
     <button class="btn go" id="startBtn">対戦開始</button>
-    <p class="keys" style="margin-top:8px">キーボード: F / ← = 攻撃 &nbsp;·&nbsp; J / → = 防御 &nbsp;·&nbsp; K / ↑ / space = 飛び道具</p>
+    <p class="keys" style="margin-top:8px">キーボード: F / ← = 攻撃 &nbsp;·&nbsp; J / → = 防御 &nbsp;·&nbsp; K / ↑ / space = 飛び道具 &nbsp;·&nbsp; L / ↓ = スペシャル</p>
   </section>
 
   <!-- ============ FIGHT ============ -->
@@ -149,10 +184,12 @@ body{
     </div>
     <div class="arena"><canvas id="stage"></canvas></div>
     <p class="log" id="log">&nbsp;</p>
+    <div class="bag" id="bag"></div>
     <div class="pads">
       <button class="pad" id="padA"><canvas width="84" height="84"></canvas>攻<small>ATTACK</small></button>
       <button class="pad" id="padG"><canvas width="84" height="84"></canvas>防<small>GUARD</small></button>
       <button class="pad" id="padS"><canvas width="84" height="84"></canvas>飛<small>SHOT</small></button>
+      <button class="pad" id="padW"><span class="wmark" id="wmark">―</span>特<small>SPECIAL</small></button>
     </div>
   </section>
 
@@ -160,6 +197,13 @@ body{
   <section id="scEnd" class="hide">
     <p class="result" id="resultText"></p>
     <p class="log" id="resultSub"></p>
+    <div id="gachaBox" class="gacha hide">
+      <p class="eyebrow" style="text-align:center">勝利報酬 / GACHA</p>
+      <div class="gslot" id="gslot">?</div>
+      <p class="gname" id="gname">&nbsp;</p>
+      <p class="gdesc" id="gdesc">&nbsp;</p>
+      <button class="btn go" id="gachaBtn">ガチャを回す</button>
+    </div>
     <div style="height:10px"></div>
     <button class="btn go" id="againBtn">もう一度</button>
     <div style="height:8px"></div>
@@ -275,6 +319,89 @@ const RULES = {
 };
 
 /* ══════════════════════════════════════════════════════════════════
+   スペシャル武器 — 勝利のガチャで手に入る使い切りの技
+   ------------------------------------------------------------------
+   ゲージではなく「所持数」で撃つ。1回使うと消える。手持ちは5個まで。
+   通常技より明確に強いが、有限なので「どの試合のどの場面で使うか」が
+   選択になる。CPUは持たない（勝った側への報酬なので非対称でよい）。
+   ══════════════════════════════════════════════════════════════════ */
+const WEAPONS = [
+  { id:"storm", name:"胞子嵐", role:"SPORE STORM", mark:"嵐", weight:20, color:"#C6A24A",
+    desc:"胞子を5発まとめてばら撒く（1発7）。全部ガードするのは難しい。",
+    kind:"burst", n:5, windup:0.26, recover:0.42,
+    shot:{ name:"胞子嵐", kind:"bolt", dmg:7, speed:250, r:6, life:2.2 } },
+
+  { id:"bind", name:"菌糸縛り", role:"MYCELIUM", mark:"縛", weight:17, color:"#8FC8EC",
+    desc:"当たると1.6秒動きを止める（ダメージ4）。止めてから斬るための技。",
+    kind:"single", windup:0.18, recover:0.30,
+    shot:{ name:"菌糸縛り", kind:"dart", dmg:4, speed:330, r:9, life:2.0, bind:1.6 } },
+
+  { id:"great", name:"大傘断ち", role:"GREATSWORD", mark:"断", weight:14, color:"#B06A3B",
+    desc:"間合2倍の大振り。28ダメージ。ガードされても半分は通る。",
+    kind:"melee", windup:0.42, active:0.20, recover:0.52, dmg:28, reach:230, chip:0.5 },
+
+  { id:"toxic", name:"猛毒雲", role:"TOXIC CLOUD", mark:"毒", weight:11, color:"#7C8F4E",
+    desc:"特大の毒雲を置く。10＋猛毒3.0/秒×6秒。長く居座って通せんぼする。",
+    kind:"single", windup:0.36, recover:0.46,
+    shot:{ name:"猛毒雲", kind:"mist", dmg:10, speed:150, r:22, life:4.0, poison:{dps:3.0,dur:6} } },
+
+  { id:"thunder", name:"落雷菌", role:"THUNDER CAP", mark:"雷", weight:8, color:"#BCA9EC",
+    desc:"相手の真上から即着弾する22。距離に関係なく当たるが、ガードには完全に消される。",
+    kind:"strike", windup:0.30, recover:0.38, dmg:22 },
+];
+const GACHA_MISS = 30;                       // 「はずれ」の重み（＝全体の約30%）
+const BAG_MAX = 5;
+const wep = id => WEAPONS.find(w=>w.id===id);
+
+/* ---------- 保存（レベルと手持ち） ---------- */
+const SAVE = {
+  level: 1, bag: [],
+  load(){
+    try{
+      const lv = parseInt(localStorage.getItem("kinoko-level"),10);
+      if(lv>=1) this.level = Math.min(99, lv);
+      const bag = JSON.parse(localStorage.getItem("kinoko-bag")||"[]");
+      if(Array.isArray(bag)) this.bag = bag.filter(id=>wep(id)).slice(0,BAG_MAX);
+    }catch(e){}
+  },
+  save(){
+    try{
+      localStorage.setItem("kinoko-level", String(this.level));
+      localStorage.setItem("kinoko-bag", JSON.stringify(this.bag));
+    }catch(e){}
+  },
+  reset(){ this.level=1; this.bag=[]; this.save(); },
+};
+SAVE.load();
+
+/* ---------- 敵のレベル ----------------------------------------------
+   Lv.1 は反応が鈍く滅多にガードしない。Lv.10 でこれまでのCPU
+   （react 0.22 / ガード0.72 / 弾0.55）に並ぶ。以降は少しずつ詰める。
+--------------------------------------------------------------------- */
+function cpuProfile(lv){
+  // 0.5乗にしているのは、線形だと Lv1〜6 の差が体感できないため（tools/balance-sim.js levels で実測）
+  const t = Math.pow(Math.min(1, Math.max(0, (lv-1)/9)), 0.5);   // Lv1→Lv10 で 0→1
+  const over = Math.min(1, Math.max(0, (lv-10)/10));             // Lv10→Lv20 で 0→1
+  return {
+    react:  0.60 - 0.38*t - 0.10*over,   // 反応の遅れ 0.60 → 0.22 → 0.12
+    guard:  0.20 + 0.52*t + 0.15*over,   // 振りかぶりを見てガードする確率
+    pGuard: 0.25 + 0.55*t + 0.12*over,   // 飛んでくる弾をガードする確率
+    shot:   0.15 + 0.40*t + 0.15*over,   // 撃つ確率
+    dmg:    0.75 + 0.25*t,               // 与ダメージ倍率 0.75 → 1.0
+    hp:     1.00 + 0.15*over,            // Lv10超えは体力も伸びる
+  };
+}
+
+/* ---------- ガチャ ---------- */
+function rollGacha(){
+  const total = GACHA_MISS + WEAPONS.reduce((a,w)=>a+w.weight,0);
+  let r = Math.random()*total;
+  if((r -= GACHA_MISS) < 0) return null;          // はずれ
+  for(const w of WEAPONS){ if((r -= w.weight) < 0) return w; }
+  return null;
+}
+
+/* ══════════════════════════════════════════════════════════════════
    音 — Web Audio でその場で合成する
    ------------------------------------------------------------------
    音声ファイルは1つも持たない。index.html 1枚で動く（＝URLを渡すだけで
@@ -382,6 +509,20 @@ const SFX = {
         hiss(0.65,{f0:900,f1:110,q:0.7,vol:0.24,filter:"lowpass"}); },
   win(){ [0,4,7,12].forEach((n,i)=>
            beep(440*Math.pow(2,n/12),0.5,{type:"triangle",vol:0.20,delay:i*0.11})); },
+  special(id){
+    if(id==="thunder"){ beep(180,0.3,{to:90,type:"sawtooth",vol:0.20}); }
+    else if(id==="great"){ beep(140,0.42,{to:70,type:"sawtooth",vol:0.24});
+                           hiss(0.4,{f0:1400,f1:300,q:0.9,vol:0.18}); }
+    else { beep(420,0.28,{to:840,type:"triangle",vol:0.20});
+           hiss(0.24,{f0:900,f1:2600,q:1.4,vol:0.14}); }
+  },
+  thunder(){ hiss(0.35,{f0:6000,f1:400,q:0.8,vol:0.34});
+             beep(90,0.5,{to:40,type:"square",vol:0.30}); },
+  gachaTick(){ beep(1200+Math.random()*600,0.04,{type:"square",vol:0.08}); },
+  gachaHit(){ [0,7,12,16].forEach((n,i)=>
+                beep(523*Math.pow(2,n/12),0.45,{type:"triangle",vol:0.20,delay:i*0.09})); },
+  gachaMiss(){ beep(300,0.35,{to:150,type:"triangle",vol:0.16});
+               beep(220,0.4,{to:110,type:"sine",vol:0.12,delay:0.08}); },
   lose(){ [0,-2,-5,-9].forEach((n,i)=>
            beep(392*Math.pow(2,n/12),0.6,{type:"triangle",vol:0.18,delay:i*0.14})); },
 };
@@ -679,6 +820,9 @@ class Fighter{
     this.hitDone = false; this.shotDone = false;
     this.poison = 0; this.poisonDps = 0;
     this.flash = 0; this.swing = 0; this.hurtLim = RULES.hurtTime;
+    this.stunLim = RULES.parryStun;
+    this.dmgScale = 1;                 // 敵のレベルで与ダメージが変わる
+    this.special = null;               // 使用中のスペシャル武器
     this.wasReady = {atk:false, grd:false, sht:false};   // 満タンになった瞬間だけ鳴らす
   }
   get busy(){ return this.state!=="walk"; }
@@ -690,6 +834,11 @@ class Fighter{
     this.grd=0; this.state="guard"; this.t=0; SFX.guard(); return true; }
   tryShot(){ if(this.state!=="walk"||this.sht<1) return false;
     this.sht=0; this.state="cast"; this.t=0; this.shotDone=false; return true; }
+  // スペシャルはゲージを使わない。使い切りなので所持数が代わりの制約
+  trySpecial(w){ if(this.state!=="walk"||!w) return false;
+    this.special = w; this.t = 0; this.hitDone = false; this.shotDone = false;
+    this.state = (w.kind==="melee") ? "spWind" : "spCast";
+    SFX.special(w.id); return true; }
 
   update(dt, foe){
     this.t += dt; this.flash = Math.max(0, this.flash-dt*4);
@@ -718,16 +867,33 @@ class Fighter{
         this.state="castRec"; this.t=0; } }
     else if(this.state==="castRec"){ this.swing = -0.6 + (this.t/S.shot.recover)*0.6;
       if(this.t>=S.shot.recover){ this.state="walk"; this.t=0; } }
+    // スペシャル：大振り（melee）
+    else if(this.state==="spWind"){ const w=this.special;
+      this.swing = -(this.t/w.windup)*0.8;
+      if(this.t>=w.windup){ this.state="spActive"; this.t=0; } }
+    else if(this.state==="spActive"){ const w=this.special;
+      this.swing = 0.4 + (this.t/w.active)*0.8;
+      if(this.t>=w.active){ this.state="spRec"; this.t=0; } }
+    // スペシャル：弾・落雷（cast）
+    else if(this.state==="spCast"){ const w=this.special;
+      this.swing = -0.45 - (this.t/w.windup)*0.3;
+      if(this.t>=w.windup){
+        if(!this.shotDone){ this.shotDone=true; fireSpecial(this, w); }
+        this.state="spRec"; this.t=0; } }
+    else if(this.state==="spRec"){ const w=this.special;
+      this.swing = (this.swing||0)*0.86;
+      if(this.t>=w.recover){ this.state="walk"; this.t=0; this.special=null; } }
     else if(this.state==="guard"){ this.swing = -0.15;
       if(this.t>=S.guardTime){ this.state="walk"; this.t=0; } }
     else if(this.state==="stun"||this.state==="hurt"){
       this.swing *= 0.9;
-      const lim = this.state==="stun"? RULES.parryStun : this.hurtLim;
+      const lim = this.state==="stun"? this.stunLim : this.hurtLim;
       if(this.t>=lim){ this.state="walk"; this.t=0; } }
   }
   facing(foe){ return Math.sign(foe.x - this.x) === this.dir; }
   takeHit(dmg){ this.hp = Math.max(0, this.hp - dmg); this.flash = 1; }
   hurt(dur){ this.state="hurt"; this.t=0; this.hurtLim=dur; }
+  stun(dur){ this.state="stun"; this.t=0; this.stunLim=dur; this.special=null; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -738,8 +904,8 @@ class Fighter{
    ══════════════════════════════════════════════════════════════════ */
 let shots = [];
 class Shot{
-  constructor(owner){
-    const S = owner.s.shot;
+  constructor(owner, spec){
+    const S = spec || owner.s.shot;
     this.s = S; this.owner = owner; this.dir = owner.dir;
     this.x = owner.x + owner.dir*24;
     this.dy = RULES.muzzleY;            // 床からの高さ（上が負）。画面比が変わっても効く
@@ -764,21 +930,50 @@ class Shot{
   }
 }
 
+/* ---------- スペシャルの発動処理 ---------- */
+let bolts = [];      // 落雷の演出（見た目だけ。判定は発動時に済んでいる）
+function fireSpecial(f, w){
+  if(w.kind==="burst"){
+    // 扇状に5発。上下にばらけるので全部ガードするのは難しい
+    for(let i=0;i<w.n;i++){
+      const sh = new Shot(f, w.shot);
+      sh.dy = RULES.muzzleY - 16 + i*8;
+      sh.vx = f.dir * (w.shot.speed * (0.82 + i*0.09));
+      shots.push(sh);
+    }
+  } else if(w.kind==="single"){
+    shots.push(new Shot(f, w.shot));
+  } else if(w.kind==="strike"){
+    // 距離に関係なく相手の真上から落ちる。ガードには完全に消される
+    const foe = (f===P)? C : P;
+    bolts.push({x:foe.x, t:0});
+    if(foe.state==="guard"){ foe.grd = Math.min(1, foe.grd + RULES.shotParryRefund); SFX.block();
+      say(`${w.name}をガード！ 完全に防いだ`); }
+    else { foe.takeHit(w.dmg * f.dmgScale); foe.hurt(RULES.hurtTime); SFX.thunder();
+      say(`${w.name} 直撃 ${Math.round(w.dmg*f.dmgScale)}`); }
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════════
    GAME
    ══════════════════════════════════════════════════════════════════ */
 const $ = id => document.getElementById(id);
 const cv = $("stage"), g = cv.getContext("2d");
 let P, C, timeLeft, running=false, last=0, logT=0, cpuTimer=0, cpuIntent=null;
-let pick = 0, cpuPick = 1, lastSec = 0;
+let pick = 0, cpuPick = 1, lastSec = 0, selSlot = 0, resultShown = false;
+let cpuProf = cpuProfile(SAVE.level);
 
 function begin(){
   P = new Fighter(SPECIES[pick], RULES.wallL+80, 1, true);
   C = new Fighter(SPECIES[cpuPick], RULES.wallR-80, -1, false);
-  shots = [];
+  cpuProf = cpuProfile(SAVE.level);
+  C.dmgScale = cpuProf.dmg;
+  C.maxHp = Math.round(C.maxHp * cpuProf.hp); C.hp = C.maxHp;
+  shots = []; bolts = []; selSlot = 0; resultShown = false;
   timeLeft = RULES.roundTime; running = true; logT=0; cpuTimer=0; cpuIntent=null;
   $("nmL").innerHTML = P.s.name + '<em>YOU</em>';
-  $("nmR").innerHTML = '<em>CPU</em>' + C.s.name;
+  $("nmR").innerHTML = `<em>Lv.${SAVE.level}</em>` + C.s.name;
+  renderBag();
   show("scFight"); fitStage(); say("交錯を待て");
   lastSec = RULES.roundTime; BGM.setMode("fight"); BGM.start();
   last = performance.now(); requestAnimationFrame(loop);
@@ -841,6 +1036,8 @@ function stepShots(dt){
     }
   }
   shots = shots.filter(s=>!s.dead);
+  for(const b of bolts) b.t += dt;
+  bolts = bolts.filter(b=>b.t < 0.35);
 }
 
 function hitByShot(sh, f){
@@ -856,39 +1053,51 @@ function hitByShot(sh, f){
     SFX.block(); say(`${S.name}をガード ${chip.toFixed(1)} 削り`);
     return;
   }
-  f.takeHit(S.dmg); f.hurt(RULES.shotHurt); SFX.hit(S.dmg);
+  const dmg = S.dmg * sh.owner.dmgScale;
+  f.takeHit(dmg); SFX.hit(dmg);
   f.x = clampX(f.x + Math.sign(sh.vx||sh.dir)*RULES.shotKnock);
+  if(S.bind){ f.stun(S.bind); say(`${S.name} 命中！ ${S.bind}秒 動きを止めた`); }
+  else f.hurt(RULES.shotHurt);
   if(S.poison){ f.poison = S.poison.dur; f.poisonDps = S.poison.dps;
-    say(`${S.name} 命中 ${S.dmg} + 毒`); }
-  else say(`${S.name} 命中 ${S.dmg}`);
+    if(!S.bind) say(`${S.name} 命中 ${Math.round(dmg)} + 毒`); }
+  else if(!S.bind) say(`${S.name} 命中 ${Math.round(dmg)}`);
 }
 
 function resolve(a, b){
-  if(a.state!=="active" || a.hitDone) return;
+  // 通常の斬りとスペシャルの大振りは、間合とダメージが違うだけで扱いは同じ
+  const sp = (a.state==="spActive") ? a.special : null;
+  if(a.state!=="active" && !sp) return;
+  if(a.hitDone) return;
+  const reach = sp ? sp.reach : a.s.reach;
+  const dmg   = (sp ? sp.dmg : a.s.dmg) * a.dmgScale;
+  const label = sp ? sp.name : a.s.skill;
+
   const dist = Math.abs(a.x-b.x);
-  if(dist > a.s.reach || !a.facing(b)) return;
+  if(dist > reach || !a.facing(b)) return;
   a.hitDone = true;
   const kb = Math.sign(b.x-a.x)*RULES.knockback;
 
   if(b.state==="guard"){
     if(b.t <= b.s.parryWindow){                     // ジャスト防御
-      a.state="stun"; a.t=0; a.swing=0;
+      a.stun(RULES.parryStun); a.swing=0;
       SFX.parry();
       if(b.s.reflect){ a.takeHit(b.s.reflect); say(`${b.s.name} 舞い返し！ ${b.s.reflect}反射`); }
       else if(b.s.parryRefund){ b.atk = 1; say(`${b.s.name} 香気斬り！ 攻撃ゲージ全快`); }
       else say(`ジャスト防御！ ${a.s.name} 硬直`);
       b.flash = .6;
     } else {                                        // 通常ガード（削りは通る）
-      const chip = Math.min(a.s.dmg*RULES.blockChip, RULES.chipCap);
+      // スペシャルは削りが重い（大傘断ちは半分通る）
+      const chip = sp ? Math.min(dmg*sp.chip, 14)
+                      : Math.min(dmg*RULES.blockChip, RULES.chipCap);
       b.takeHit(chip); b.x = clampX(b.x+kb*0.5); SFX.block();
-      say(`ガード ${chip.toFixed(1)} 削り`);
+      say(`${label}をガード ${chip.toFixed(1)} 削り`);
     }
     return;
   }
-  b.takeHit(a.s.dmg); b.hurt(RULES.hurtTime); b.x = clampX(b.x+kb); SFX.hit(a.s.dmg);
-  if(a.s.poison){ b.poison = a.s.poison.dur; b.poisonDps = a.s.poison.dps;
-    say(`${a.s.skill} 命中 ${a.s.dmg} + 猛毒`); }
-  else say(`${a.s.skill} 命中 ${a.s.dmg}`);
+  b.takeHit(dmg); b.hurt(RULES.hurtTime); b.x = clampX(b.x+kb*(sp?1.6:1)); SFX.hit(dmg);
+  if(!sp && a.s.poison){ b.poison = a.s.poison.dur; b.poisonDps = a.s.poison.dps;
+    say(`${label} 命中 ${Math.round(dmg)} + 猛毒`); }
+  else say(`${label} 命中 ${Math.round(dmg)}`);
 }
 const clampX = x => Math.max(RULES.wallL, Math.min(RULES.wallR, x));
 function say(t){ $("log").textContent = t; logT = 1.6; }
@@ -898,7 +1107,7 @@ function cpuThink(dt){
   cpuTimer -= dt;
   if(C.state!=="walk") return;
   if(cpuTimer>0) return;
-  cpuTimer = RULES.cpuReact*(0.7+Math.random()*0.6);
+  cpuTimer = cpuProf.react*(0.7+Math.random()*0.6);
 
   const dist = Math.abs(P.x-C.x);
   const closing = C.facing(P);
@@ -912,19 +1121,19 @@ function cpuThink(dt){
       const tta = (Math.abs(sh.x-C.x) - RULES.hitHalfW) / Math.max(40, Math.abs(sh.vx));
       if(tta>=0 && (best===null || tta<best)) best = tta;
     }
-    if(best!==null && best < Math.min(0.34, C.s.guardTime*0.55) && Math.random()<0.80){ C.tryGuard(); return; }
+    if(best!==null && best < Math.min(0.34, C.s.guardTime*0.55) && Math.random()<cpuProf.pGuard){ C.tryGuard(); return; }
   }
   // 相手の振りかぶりを見てから防御
   if(P.state==="windup" && C.grd>=1 && dist < P.s.reach+60){
     const remain = P.s.windup - P.t;
-    if(remain < C.s.parryWindow*0.9 + 0.06 && Math.random() < 0.72){ C.tryGuard(); return; }
+    if(remain < C.s.parryWindow*0.9 + 0.06 && Math.random() < cpuProf.guard){ C.tryGuard(); return; }
   }
   // 飛び道具は間合いの外から。山なり弾だけは近距離で頭上を越えるので撃たない
   if(C.sht>=1 && closing){
     const k = C.s.shot.kind;
     const ok = k==="lob" ? (dist>150 && dist<300) : dist > C.s.reach*0.95;
     const keepMelee = C.atk>=1 && dist < C.s.reach*1.7;   // 斬れる間合いなら撃たない
-    if(ok && !keepMelee && Math.random()<0.55){ C.tryShot(); return; }
+    if(ok && !keepMelee && Math.random()<cpuProf.shot){ C.tryShot(); return; }
   }
   // 間合いに入る時刻を予測して振る
   if(C.atk>=1 && closing){
@@ -1007,9 +1216,31 @@ function render(){
       g.beginPath(); g.arc(f.x+f.dir*26, F+RULES.muzzleY, 2+p*f.s.shot.r, 0, 7); g.fill();
       g.restore();
     }
+    // スペシャルの溜め（武器色の輪が締まる）
+    if(f.state==="spCast" || f.state==="spWind"){
+      const w=f.special, p=Math.min(1, f.t/w.windup);
+      g.save(); g.globalAlpha=.25+p*.6; g.strokeStyle=w.color; g.lineWidth=2;
+      g.beginPath(); g.arc(f.x, F-34, 46-p*24, 0, 7); g.stroke(); g.restore();
+    }
+    // 大傘断ちの薙ぎ
+    if(f.state==="spActive" && f.special && f.special.kind==="melee"){
+      const w=f.special, p=f.t/w.active;
+      g.save(); g.globalAlpha=.7*(1-p); g.strokeStyle=w.color; g.lineWidth=9; g.lineCap="round";
+      g.beginPath(); g.arc(f.x, F-34, w.reach*0.55, f.dir>0? -1.5+p*1.9 : 1.6-p*1.9,
+                                                      f.dir>0? -0.9+p*1.9 : 2.2-p*1.9); g.stroke();
+      g.restore();
+    }
   });
 
   shots.forEach(sh=>drawShot(g, sh));
+  bolts.forEach(b=>{                       // 落雷菌：上から落ちる柱
+    const p = b.t/0.35;
+    g.save(); g.globalAlpha = Math.max(0, 1-p); g.strokeStyle="#BCA9EC"; g.lineWidth=7-p*5;
+    g.beginPath(); g.moveTo(b.x, 0); g.lineTo(b.x+6, F*0.45); g.lineTo(b.x-4, F*0.7); g.lineTo(b.x, F-8);
+    g.stroke();
+    g.globalAlpha = Math.max(0,.5-p*.5); g.fillStyle="#EDE4CC";
+    g.beginPath(); g.arc(b.x, F-20, 26*(1-p)+6, 0, 7); g.fill(); g.restore();
+  });
 
   // ラベル
   g.font="500 9px ui-monospace,monospace"; g.textAlign="center";
@@ -1055,6 +1286,44 @@ function drawShot(g, sh){
   }
   g.restore();
 }
+/* ---------- 手持ちと特殊ボタン ---------- */
+function renderBag(){
+  const el = $("bag"); el.innerHTML = "";
+  for(let i=0;i<BAG_MAX;i++){
+    const w = wep(SAVE.bag[i]);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = w? w.mark : "・";
+    b.className = (w? "has ":"") + (i===selSlot && w? "sel":"");
+    b.style.setProperty("--w", w? w.color : "var(--dim)");
+    b.title = w? `${w.name} — ${w.desc}` : "空き";
+    b.disabled = !w;
+    b.onclick = ()=>{ selSlot = i; renderBag(); };
+    el.appendChild(b);
+  }
+  const w = wep(SAVE.bag[selSlot]) || wep(SAVE.bag.find(x=>x));
+  $("wmark").textContent = w? w.mark : "―";
+  $("wmark").style.setProperty("--w", w? w.color : "var(--dim)");
+  $("padW").disabled = !w;
+  $("padW").title = w? `${w.name} — ${w.desc}` : "スペシャル武器なし（勝利のガチャで手に入る）";
+}
+function currentWeapon(){
+  if(wep(SAVE.bag[selSlot])) return {w:wep(SAVE.bag[selSlot]), i:selSlot};
+  const i = SAVE.bag.findIndex(x=>wep(x));
+  return i>=0 ? {w:wep(SAVE.bag[i]), i} : null;
+}
+function special(){
+  if(!running) return;
+  const cur = currentWeapon();
+  if(!cur){ say("スペシャル武器がない"); return; }
+  if(P.state!=="walk"){ return; }
+  if(P.trySpecial(cur.w)){
+    SAVE.bag.splice(cur.i,1); SAVE.save();          // 1回使うと消える
+    selSlot = Math.min(selSlot, Math.max(0, SAVE.bag.length-1));
+    renderBag(); say(`${cur.w.name}！`);
+  }
+}
+
 function paintPad(id, pct, col){
   const el=$(id), c=el.querySelector("canvas"), x=c.getContext("2d");
   x.clearRect(0,0,84,84); drawSporeGauge(x,42,42,30,pct,col,"#3A3547");
@@ -1074,15 +1343,94 @@ function finish(){
   setTimeout(showResult, ko? 1100 : 260);
 }
 function showResult(){
+  if(resultShown) return;      // レベルとガチャは1試合につき1回だけ
+  resultShown = true;
   const pr=P.hp/P.maxHp, cr=C.hp/C.maxHp;
   const win = C.hp<=0 && P.hp>0 ? 1 : P.hp<=0 && C.hp>0 ? -1 : (pr>cr?1:pr<cr?-1:0);
   $("resultText").textContent = win>0? "勝　利" : win<0? "敗　北" : "引　分";
   $("resultText").style.color = win>0? "var(--cream)" : win<0? "var(--pink)" : "var(--dim)";
   if(win>0) SFX.win(); else if(win<0) SFX.lose();
-  $("resultSub").textContent =
-    `${P.s.name} ${Math.round(P.hp)}/${P.maxHp}  ―  ${C.s.name} ${Math.round(C.hp)}/${C.maxHp}` +
-    (timeLeft<=0 ? "  (時間切れ判定)" : "");
+
+  let sub = `${P.s.name} ${Math.round(P.hp)}/${P.maxHp}  ―  Lv.${SAVE.level} ${C.s.name} ${Math.round(C.hp)}/${C.maxHp}`
+          + (timeLeft<=0 ? "  (時間切れ判定)" : "");
+  if(win>0){                       // 勝ったら敵が1つ強くなる＋ガチャ
+    SAVE.level = Math.min(99, SAVE.level+1); SAVE.save();
+    sub += `  →  次は Lv.${SAVE.level}`;
+    gachaReady();
+  } else {
+    $("gachaBox").classList.add("hide");
+  }
+  $("resultSub").textContent = sub;
   show("scEnd");
+}
+
+/* ---------- ガチャ ---------- */
+let gachaSpinning = false;
+function gachaReady(){
+  const box = $("gachaBox");
+  box.classList.remove("hide");
+  $("gslot").textContent = "?";
+  $("gslot").style.color = "var(--dim)";
+  $("gname").textContent = SAVE.bag.length>=BAG_MAX ? "手持ちが満杯（5個）" : "\u00a0";
+  $("gdesc").textContent = SAVE.bag.length>=BAG_MAX
+    ? "1つ使ってから回すと受け取れる。回すこと自体はできる。" : "\u00a0";
+  $("gachaBtn").disabled = false;
+  $("gachaBtn").textContent = "ガチャを回す";
+}
+function spinGacha(){
+  if(gachaSpinning) return;
+  gachaSpinning = true;
+  $("gachaBtn").disabled = true;
+  const result = rollGacha();
+  const marks = WEAPONS.map(w=>w.mark).concat(["・"]);
+  let n = 0;
+  const iv = setInterval(()=>{
+    n++;
+    $("gslot").textContent = marks[n % marks.length];
+    $("gslot").style.color = "var(--cream)";
+    SFX.gachaTick();
+    if(n >= 16){
+      clearInterval(iv);
+      gachaSpinning = false;
+      $("gachaBtn").textContent = "もう一度回すには勝つこと";
+      if(!result){
+        $("gslot").textContent = "×"; $("gslot").style.color = "var(--dim)";
+        $("gname").textContent = "はずれ";
+        $("gdesc").textContent = "また勝てば引ける。";
+        SFX.gachaMiss();
+      } else if(SAVE.bag.length >= BAG_MAX){
+        $("gslot").textContent = result.mark; $("gslot").style.color = result.color;
+        $("gname").textContent = `${result.name} … 手持ちが満杯で受け取れない`;
+        $("gdesc").textContent = "5個持てる上限。1つ使ってから勝つと入る。";
+        SFX.gachaMiss();
+      } else {
+        SAVE.bag.push(result.id); SAVE.save();
+        $("gslot").textContent = result.mark; $("gslot").style.color = result.color;
+        $("gname").textContent = `${result.name}（${result.role}）を獲得！`;
+        $("gdesc").textContent = result.desc;
+        SFX.gachaHit();
+      }
+      renderBag(); renderStatus();
+    }
+  }, 70);
+}
+
+/* ---------- 選択画面の状態表示 ---------- */
+function renderStatus(){
+  const slots = Array.from({length:BAG_MAX}, (_,i)=>{
+    const w = wep(SAVE.bag[i]);
+    return w? `<span class="slot" style="color:${w.color}" title="${w.name}">${w.mark}</span>`
+            : `<span class="slot">・</span>`;
+  }).join("");
+  $("status").innerHTML =
+    `敵のレベル <b>${SAVE.level}</b>　勝つと上がる` +
+    `<span style="margin-left:6px">スペシャル ${slots} ${SAVE.bag.length}/${BAG_MAX}</span>` +
+    `<button class="reset" id="resetBtn">記録を消す</button>`;
+  $("resetBtn").onclick = ()=>{
+    if(confirm("敵のレベルと手持ちの武器を消して、Lv.1 から始め直しますか？")){
+      SAVE.reset(); selSlot=0; cpuProf = cpuProfile(SAVE.level); renderStatus(); renderBag();
+    }
+  };
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1135,12 +1483,14 @@ function guard(){ if(running && !P.tryGuard() && P.state==="walk") say("ゲー�
   $("padA").addEventListener(ev, e=>{ e.preventDefault(); attack(); });
   $("padG").addEventListener(ev, e=>{ e.preventDefault(); guard(); });
   $("padS").addEventListener(ev, e=>{ e.preventDefault(); shot(); });
+  $("padW").addEventListener(ev, e=>{ e.preventDefault(); special(); });
 });
 addEventListener("keydown", e=>{
   if(e.repeat) return;
   if(e.key==="f"||e.key==="F"||e.key==="ArrowLeft"){ e.preventDefault(); attack(); }
   if(e.key==="j"||e.key==="J"||e.key==="ArrowRight"){ e.preventDefault(); guard(); }
   if(e.key==="k"||e.key==="K"||e.key==="ArrowUp"||e.key===" "){ e.preventDefault(); shot(); }
+  if(e.key==="l"||e.key==="L"||e.key==="ArrowDown"){ e.preventDefault(); special(); }
 });
 $("sndBtn").onclick = ()=>{     // 消音は取り消し線で示す（.snd[aria-pressed="false"]）
   SND.setOn(!SND.on);
@@ -1149,9 +1499,12 @@ $("sndBtn").onclick = ()=>{     // 消音は取り消し線で示す（.snd[aria
 $("sndBtn").setAttribute("aria-pressed", SND.on);
 $("startBtn").onclick = ()=>{ cpuPick = (pick + 1 + Math.floor(Math.random()*4)) % 5; begin(); };
 $("againBtn").onclick = ()=>{ cpuPick = (pick + 1 + Math.floor(Math.random()*4)) % 5; begin(); };
-$("backBtn").onclick  = ()=>{ BGM.setMode("menu"); show("scSelect"); };
+$("backBtn").onclick  = ()=>{ BGM.setMode("menu"); renderStatus(); show("scSelect"); };
 
 buildRoster();
+renderStatus();
+renderBag();
+$("gachaBtn").onclick = spinGacha;
 </script>
 </body>
 </html>
