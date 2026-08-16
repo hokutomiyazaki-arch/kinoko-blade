@@ -3,15 +3,15 @@
    飛び道具（shot）も index.html と同じ挙動を実装してある：
      bolt 直進 / dart 高速 / wave 蛇行 / lob 山なり（近距離は頭上を越す） / mist 低速で減速し居座る */
 const S=[
- {id:"シイタケ",hp:104,speed:90,dmg:16,reach:115,atkGauge:2.0,guardGauge:1.2,windup:.26,active:.14,recover:.32,guardTime:.70,parryWindow:.20,
+ {id:"シイタケ",hp:110,speed:90,dmg:16,reach:130,atkGauge:2.0,guardGauge:1.28,windup:0.28,active:0.14,recover:0.32,guardTime:.70,parryWindow:.20,
   shot:{kind:"bolt",gauge:3.3,dmg:6,speed:214,windup:.22,recover:.30,r:7,life:2.6}},
- {id:"エノキ",hp:88,speed:141,dmg:13,reach:101,atkGauge:1.1,guardGauge:0.9,windup:.14,active:.10,recover:.20,guardTime:.52,parryWindow:.19,
-  shot:{kind:"dart",gauge:2.7,dmg:3,speed:368,windup:.10,recover:.16,r:5,life:1.6}},
- {id:"ベニテング",hp:70,speed:53,dmg:23,reach:116,atkGauge:3.2,guardGauge:2.0,windup:.46,active:.18,recover:.56,guardTime:.62,parryWindow:.14,poison:{dps:1.8,dur:6},
-  shot:{kind:"mist",gauge:2.2,dmg:9,speed:145,windup:.34,recover:.42,r:13,life:2.6,poison:{dps:1.2,dur:4}}},
- {id:"マイタケ",hp:132,speed:60,dmg:15,reach:104,atkGauge:2.8,guardGauge:1.05,windup:.32,active:.15,recover:.40,guardTime:.90,parryWindow:.22,reflect:6,
+ {id:"エノキ",hp:88,speed:141,dmg:13,reach:105,atkGauge:1.2,guardGauge:0.9,windup:0.12,active:0.09,recover:0.18,guardTime:.52,parryWindow:.19,
+  shot:{kind:"dart",gauge:2.58,dmg:3,speed:368,windup:.10,recover:.16,r:5,life:1.6}},
+ {id:"ベニテング",hp:78,speed:53,dmg:23,reach:148,atkGauge:3.2,guardGauge:2.0,windup:0.5,active:0.2,recover:0.58,guardTime:.62,parryWindow:.14,poison:{dps:1.8,dur:6},
+  shot:{kind:"mist",gauge:2.08,dmg:9,speed:145,windup:.34,recover:.42,r:13,life:2.6,poison:{dps:1.2,dur:4}}},
+ {id:"マイタケ",hp:132,speed:60,dmg:15,reach:118,atkGauge:2.8,guardGauge:1.05,windup:0.34,active:0.16,recover:0.42,guardTime:.90,parryWindow:.22,reflect:6,
   shot:{kind:"lob",gauge:2.6,dmg:13,speed:201,up:132,windup:.28,recover:.36,r:9,life:3.0}},
- {id:"マツタケ",hp:74,speed:101,dmg:15,reach:108,atkGauge:2.8,guardGauge:2.0,windup:.20,active:.12,recover:.30,guardTime:.56,parryWindow:.24,parryRefund:1,
+ {id:"マツタケ",hp:74,speed:101,dmg:15,reach:116,atkGauge:2.8,guardGauge:2.0,windup:0.2,active:0.12,recover:0.3,guardTime:.56,parryWindow:.24,parryRefund:1,
   shot:{kind:"wave",gauge:2.9,dmg:6,speed:261,amp:17,freq:9,windup:.16,recover:.24,r:7,life:2.2}},
 ];
 const R={wallL:44,wallR:516,bodyGap:58,blockChip:.35,chipCap:5,parryStun:.65,hurtTime:.25,shotHurt:.18,

@@ -257,9 +257,9 @@ const SPECIES = [
   {
     id:"shiitake", name:"シイタケ", role:"BALANCE", skill:"傘割り",
     note:"基準値。守りが1.2秒で回るので、様子見と差し込みを両立できる。",
-    hp:104, speed:90, dmg:16, reach:115,
-    atkGauge:2.0, guardGauge:1.2,
-    windup:0.26, active:0.14, recover:0.32,
+    hp:110, speed:90, dmg:16, reach:130,
+    atkGauge:2.0, guardGauge:1.28,
+    windup:0.28, active:0.14, recover:0.32,
     guardTime:0.70, parryWindow:0.20,
     shot:{ name:"胞子弾", kind:"bolt", gauge:3.3, dmg:6, speed:214,
            windup:0.22, recover:0.30, r:7, life:2.6,
@@ -270,11 +270,11 @@ const SPECIES = [
   {
     id:"enoki", name:"エノキ", role:"RUSH", skill:"束ね突き",
     note:"最速。遭遇回数を強引に増やして重いきのこのゲージを枯らす。振りが0.14秒で読まれにくい。",
-    hp:88, speed:141, dmg:13, reach:101,
-    atkGauge:1.1, guardGauge:0.9,
-    windup:0.14, active:0.10, recover:0.20,
+    hp:88, speed:141, dmg:13, reach:105,
+    atkGauge:1.2, guardGauge:0.9,
+    windup:0.12, active:0.09, recover:0.18,
     guardTime:0.52, parryWindow:0.19,
-    shot:{ name:"針飛ばし", kind:"dart", gauge:2.7, dmg:3, speed:368,
+    shot:{ name:"針飛ばし", kind:"dart", gauge:2.58, dmg:3, speed:368,
            windup:0.10, recover:0.16, r:5, life:1.6,
            note:"最速の弾。1発は軽いが、相手の防御ゲージを空にするために撃つ。" },
     art:{ style:"plain", body:"#EFE9D8", cap:"#FBF7EC", pom:"#DCD5C2", trim:"#D8D0BC", weapon:"#D3CBB6" },
@@ -283,12 +283,12 @@ const SPECIES = [
   {
     id:"benitengu", name:"ベニテングタケ", role:"VENOM", skill:"紅の一閃",
     note:"最遅・最重。命中で猛毒6秒。振りかぶり0.46秒は丸見え、外せば3.2秒の空白。",
-    hp:70, speed:53, dmg:23, reach:116,
+    hp:78, speed:53, dmg:23, reach:148,
     atkGauge:3.2, guardGauge:2.0,
-    windup:0.46, active:0.18, recover:0.56,
+    windup:0.5, active:0.2, recover:0.58,
     guardTime:0.62, parryWindow:0.14,
     poison:{dps:1.8, dur:6},
-    shot:{ name:"毒霧", kind:"mist", gauge:2.2, dmg:9, speed:145,
+    shot:{ name:"毒霧", kind:"mist", gauge:2.08, dmg:9, speed:145,
            windup:0.34, recover:0.42, r:13, life:2.6,
            poison:{dps:1.2, dur:4},
            note:"減速しながら居座る毒の雲。歩みが自動な以上、置かれた側は必ず触る。" },
@@ -298,9 +298,9 @@ const SPECIES = [
   {
     id:"maitake", name:"マイタケ", role:"WALL", skill:"舞い返し",
     note:"防御ゲージが1.05秒で回る鉄壁。ジャスト防御で6点を反射する。攻めは2.8秒に一度だけ。",
-    hp:132, speed:60, dmg:15, reach:104,
+    hp:132, speed:60, dmg:15, reach:118,
     atkGauge:2.8, guardGauge:1.05,
-    windup:0.32, active:0.15, recover:0.40,
+    windup:0.34, active:0.16, recover:0.42,
     guardTime:0.90, parryWindow:0.22,
     reflect:6,
     shot:{ name:"舞い胞子", kind:"lob", gauge:2.6, dmg:13, speed:201, up:132,
@@ -312,9 +312,9 @@ const SPECIES = [
   {
     id:"matsutake", name:"マツタケ", role:"TECHNIC", skill:"香気斬り",
     note:"ジャスト防御の受付が最長0.24秒。成功すれば攻撃ゲージが即全快し、そのまま斬り返せる。",
-    hp:74, speed:101, dmg:15, reach:108,
+    hp:74, speed:101, dmg:15, reach:116,
     atkGauge:2.8, guardGauge:2.0,
-    windup:0.20, active:0.12, recover:0.30,
+    windup:0.2, active:0.12, recover:0.3,
     guardTime:0.56, parryWindow:0.24,
     parryRefund:true,
     shot:{ name:"香気弾", kind:"wave", gauge:2.9, dmg:6, speed:261, amp:17, freq:9,
@@ -414,7 +414,7 @@ const CHAR_W = 63, CHAR_H = 77;          // 通常キャラの見た目の大き
 
 const BOSSES = [
   { id:"ooshiitake", name:"大椎茸", role:"BOSS", skill:"薙ぎ払い",
-    hp:260, speed:46, dmg:19, reach:150,
+    hp:300, speed:46, dmg:19, reach:166,
     atkGauge:2.40, guardGauge:99, windup:0.62, active:0.22, recover:0.60,
     guardTime:0.5, parryWindow:0.10,
     shot:{ name:"胞子の雨", kind:"lob", gauge:3.6, dmg:8, speed:120, up:170, n:3,
@@ -423,7 +423,7 @@ const BOSSES = [
     accent:"#7FB4D8" },
 
   { id:"oobeni", name:"大紅天狗", role:"BOSS", skill:"紅の薙ぎ",
-    hp:260, speed:48, dmg:19, reach:152,
+    hp:300, speed:48, dmg:19, reach:169,
     atkGauge:2.35, guardGauge:99, windup:0.56, active:0.22, recover:0.56,
     guardTime:0.5, parryWindow:0.10, poison:{dps:1.6, dur:4},
     shot:{ name:"毒の雨", kind:"lob", gauge:3.4, dmg:8, speed:130, up:175, n:4,
@@ -432,7 +432,7 @@ const BOSSES = [
     accent:"#E8809A" },
 
   { id:"oomatsu", name:"王茸", role:"BOSS", skill:"王の一閃",
-    hp:260, speed:50, dmg:20, reach:154,
+    hp:300, speed:50, dmg:20, reach:172,
     atkGauge:2.30, guardGauge:99, windup:0.50, active:0.22, recover:0.52,
     guardTime:0.5, parryWindow:0.10,
     shot:{ name:"香気の雨", kind:"lob", gauge:3.2, dmg:9, speed:140, up:180, n:4,
@@ -622,11 +622,28 @@ const SFX = {
    タイミングが揺れるため、Web Audio の時計に載せる）。
    menu → 旋律と低音だけ / fight → 太鼓が入る / tense → 速くなる
 ------------------------------------------------------------------- */
+const TRACKS = {
+  // ホーム：都節音階。低速・まばら。太鼓なし
+  menu:{ bpm:84, root:220, scale:[0,1,5,7,8], drums:false, hat:false,
+    bass:[0,null,null,null, null,null,2,null, 0,null,null,null, null,null,4,null],
+    mel:[ 0,null,2,null,  3,null,2,null,   1,null,0,null, null,null,4,null,
+          3,null,2,null,  0,null,null,1,   2,null,3,null,  2,null,0,null ] },
+
+  // 戦闘：陽旋（明るい五音）。太鼓が入り、旋律が詰まる
+  fight:{ bpm:98, root:220, scale:[0,2,3,7,9], drums:true, hat:true,
+    bass:[0,null,0,null, 3,null,null,null, 0,null,0,null, 4,null,4,null],
+    mel:[ 4,null,3,2,   4,null,null,3,   2,null,4,null,  3,2,null,null,
+          0,null,2,3,   4,null,3,null,   2,3,4,null,     3,null,2,null ] },
+
+  // ボス：一音下げた低い根音。半音を含む不穏な音階。裏拍の太鼓が増える
+  boss:{ bpm:106, root:165, scale:[0,1,4,6,8], drums:true, hat:true, heavy:true,
+    bass:[0,null,0,0, null,null,0,null, 1,null,1,1, null,null,0,null],
+    mel:[ 0,null,null,1,  0,null,4,null,  3,null,null,4,  3,null,1,null,
+          0,null,null,1,  0,null,6,null,  4,null,3,null,  1,null,0,null ] },
+};
+
 const BGM = {
-  timer:null, next:0, step:0, mode:"menu", playing:false,
-  scale:[0,1,5,7,8], root:220,
-  mel:[ 0,null,2,null,  3,null,2,null,   1,null,0,null, null,null,4,null,
-        3,null,2,null,  0,null,null,1,   2,null,3,null,  2,null,0,null ],
+  timer:null, next:0, step:0, mode:"menu", tense:false, playing:false,
 
   start(){
     // AudioContext は作らない。最初のタップで wakeAudio() が用意するまで待つ
@@ -635,8 +652,11 @@ const BGM = {
     this.timer = setInterval(()=>this.schedule(), 25);
   },
   stop(){ if(this.timer) clearInterval(this.timer); this.timer=null; this.playing=false; },
-  setMode(m){ this.mode = m; },
-  bpm(){ return this.mode==="tense" ? 112 : this.mode==="fight" ? 96 : 84; },
+  // ホーム / 戦闘 / ボス の3曲。残り15秒は曲を変えず「速くなる」だけ
+  setMode(m){ if(m==="tense"){ this.tense = true; return; }
+              this.mode = TRACKS[m] ? m : "menu"; this.tense = false; },
+  track(){ return TRACKS[this.mode] || TRACKS.menu; },
+  bpm(){ return this.track().bpm * (this.tense? 1.14 : 1); },
 
   schedule(){
     if(!SND.ctx || !SND.on) return;
@@ -648,27 +668,31 @@ const BGM = {
     }
   },
   freq(deg){
-    const oct = Math.floor(deg/5), n = this.scale[((deg%5)+5)%5];
-    return this.root * Math.pow(2, n/12 + oct);
+    const T = this.track();
+    const oct = Math.floor(deg/5), n = T.scale[((deg%5)+5)%5];
+    return T.root * Math.pow(2, n/12 + oct);
   },
   note(i, t){
-    const bus = SND.musicBus, fight = this.mode!=="menu";
-    // 低音（1小節=8ステップの頭）
-    if(i%8===0) beep(this.freq(0)/2, 0.9, {at:t, type:"sine", vol:0.30, bus, attack:0.02});
-    if(i%16===8) beep(this.freq(2)/2, 0.7, {at:t, type:"sine", vol:0.24, bus, attack:0.02});
+    const bus = SND.musicBus, T = this.track();
+    // 低音
+    const b = T.bass[i % T.bass.length];
+    if(b!=null) beep(this.freq(b)/2, T.heavy? 0.7 : 0.9,
+                     {at:t, type:T.heavy? "sawtooth":"sine", vol:T.heavy? 0.22 : 0.30, bus, attack:0.02});
     // 旋律（琴のつもり）
-    const m = this.mel[i];
+    const m = T.mel[i];
     if(m!=null){
       beep(this.freq(m+5), 0.42, {at:t, type:"triangle", vol:0.20, bus, attack:0.004});
       beep(this.freq(m+10), 0.22, {at:t, type:"sine", vol:0.06, bus, attack:0.004});
       hiss(0.05, {at:t, f0:3000, f1:1200, q:2.5, vol:0.035, bus});   // 弦の擦れ
     }
-    // 太鼓（戦闘中のみ）
-    if(fight && (i%8===0 || i%8===4))
+    // 太鼓
+    if(T.drums && (i%8===0 || i%8===4))
       beep(90, 0.20, {at:t, to:50, type:"sine", vol:0.34, bus, attack:0.003});
-    if(this.mode==="tense" && i%4===2)
+    if(T.heavy && i%4===2)                       // ボスは裏拍にも入る
+      beep(64, 0.22, {at:t, to:38, type:"sine", vol:0.30, bus, attack:0.003});
+    if(this.tense && i%4===2)
       beep(70, 0.14, {at:t, to:45, type:"sine", vol:0.22, bus, attack:0.003});
-    if(fight && i%2===1)
+    if(T.hat && i%2===1)
       hiss(0.05, {at:t, f0:7000, f1:4000, q:1.6, vol:0.045, bus});
   },
 };
@@ -703,6 +727,13 @@ const ART = {
   blade:"#E9E9EF", bladeHi:"#FCFCFE", bladeLo:"#C6C6D0",
 };
 const BODY_R = 28, BODY_Y = -47, CAP_EDGE = -45, K = 0.88;
+
+/* 刃先が「当たる距離」に届くように、剣の長さを reach から逆算する。
+   これまでは全員同じ長さ（世界座標で69）で、reach 105〜148 に対して短すぎた＝
+   当たっているのに刃が届いて見えなかった。手は art 座標で x=31 の位置にある。 */
+const HAND_X = 31;
+const bladeLenFor = reach => Math.round(1.00*reach/K - HAND_X);
+SPECIES.forEach(s => { s.bladeLen = bladeLenFor(s.reach); });
 
 function ink(g, w){ g.strokeStyle=ART.line; g.lineWidth=w; g.lineJoin="round"; g.lineCap="round"; }
 function paint(g, fill, w){ g.fillStyle=fill; g.fill(); ink(g,w||3); g.stroke(); }
@@ -744,9 +775,9 @@ function drawMushroom(g, s, x, y, scale, dir, pose){
   drawFace(g, pose);
 
   // 前の腕＋剣
-  g.save(); g.translate(31,-38);
+  g.save(); g.translate(HAND_X,-38);
   g.beginPath(); g.ellipse(0,0,8.5,8,0,0,7); paint(g,A.body,3);
-  drawSword(g, A.weapon, pose.swing);
+  drawSword(g, A.weapon, pose.swing, pose.blade || s.bladeLen);
   g.restore();
 
   g.restore();
@@ -827,18 +858,20 @@ function drawFace(g, pose){
 }
 
 /* ---------- 剣 ---------- */
-function drawSword(g, col, swing){
+function drawSword(g, col, swing, len){
+  const L = len || 47;                       // 刃先までの長さ（art座標）
+  const w = 5.5 + L*0.018;                   // 長い剣ほど幅も少し太く
   g.save(); g.rotate(-1.05 + swing*1.9);
   // 刀身
   g.beginPath();
-  g.moveTo(7,-5.5); g.lineTo(38,-5.5); g.lineTo(47,0); g.lineTo(38,5.5); g.lineTo(7,5.5); g.closePath();
+  g.moveTo(7,-w); g.lineTo(L-9,-w); g.lineTo(L,0); g.lineTo(L-9,w); g.lineTo(7,w); g.closePath();
   paint(g,ART.blade,2.8);
   g.strokeStyle=ART.bladeHi; g.lineWidth=2.2; g.lineCap="round";
-  g.beginPath(); g.moveTo(11,-2); g.lineTo(37,-2); g.stroke();
+  g.beginPath(); g.moveTo(11,-w*0.36); g.lineTo(L-10,-w*0.36); g.stroke();
   g.strokeStyle=ART.bladeLo; g.lineWidth=1.4;
-  g.beginPath(); g.moveTo(11,3); g.lineTo(36,3); g.stroke();
+  g.beginPath(); g.moveTo(11,w*0.55); g.lineTo(L-11,w*0.55); g.stroke();
   // 鍔・柄・柄頭
-  g.beginPath(); g.roundRect(0,-11,7,22,2.5); paint(g,col,2.8);
+  g.beginPath(); g.roundRect(0,-11-w*0.5,7,22+w,2.5); paint(g,col,2.8);
   g.beginPath(); g.roundRect(-12,-4,13,8,3); paint(g,col,2.8);
   g.beginPath(); g.arc(-14,0,5,0,7); paint(g,col,2.8);
   g.restore();
@@ -941,7 +974,7 @@ function drawBoss(g, f, x, y){
   // 前の腕＋大剣
   g.save(); g.translate(stipeW+16, stipeTop*0.55);
   g.beginPath(); g.ellipse(0,0,16,15,0,0,7); paint(g,A.body,3.4);
-  g.save(); g.scale(2.1,2.1); drawSword(g, A.weapon, f.swing); g.restore();
+  drawSword(g, A.weapon, f.swing, f.s.reach - 46);   // 刃先が reach に届く長さ
   g.restore();
 
   g.restore();
@@ -1165,7 +1198,7 @@ function begin(){
   const lv = SAVE.level;
   bossFight = isBossLevel(lv);
   cpuProf = cpuProfile(lv);
-  shots = []; bolts = []; selSlot = 0; resultShown = false; actIdx = 0;
+  shots = []; bolts = []; sparks = []; selSlot = 0; resultShown = false; actIdx = 0;
   party = []; foes = [];
 
   if(bossFight){
@@ -1198,7 +1231,7 @@ function begin(){
   renderBag();
   show("scFight"); fitStage();
   say(bossFight? `${C.s.name} 出現` : "交錯を待て");
-  lastSec = RULES.roundTime; BGM.setMode(bossFight? "tense" : "fight"); BGM.start();
+  lastSec = RULES.roundTime; BGM.setMode(bossFight? "boss" : "fight"); BGM.start();
   last = performance.now(); requestAnimationFrame(loop);
 }
 
@@ -1228,7 +1261,7 @@ function step(dt){
   // 残り5秒の秒読み。BGMも締めに入る
   const sec = Math.ceil(timeLeft);
   if(sec!==lastSec){ if(sec<=5 && sec>0) SFX.tick(); lastSec = sec; }
-  if(timeLeft<=15 && BGM.mode==="fight") BGM.setMode("tense");
+  if(timeLeft<=15 && !BGM.tense) BGM.setMode("tense");   // 曲はそのまま速くなる
 
   // ── 衝突：敵とだけ弾き合う（味方同士はすり抜ける。詰まると何もできなくなるため）
   for(const m of party){ if(m.dead) continue;
@@ -1273,6 +1306,8 @@ function stepShots(dt){
   shots = shots.filter(s=>!s.dead);
   for(const b of bolts) b.t += dt;
   bolts = bolts.filter(b=>b.t < 0.35);
+  for(const sp of sparks) sp.t += dt;
+  sparks = sparks.filter(sp=>sp.t < 0.22);
 }
 
 function hitByShot(sh, f){
@@ -1333,6 +1368,7 @@ function resolve(a, b){
     return;
   }
   b.takeHit(dmg); b.hurt(RULES.hurtTime); b.x = clampX(b.x+kb*(sp?1.6:1)); SFX.hit(dmg);
+  sparks.push({x:(a.x+b.x)/2, y:RULES.floorY-36, t:0, seed:Math.random()*6});
   if(!sp && a.s.poison){ b.poison = a.s.poison.dur; b.poisonDps = a.s.poison.dps;
     say(`${label} 命中 ${Math.round(dmg)} + 猛毒`); }
   else say(`${label} 命中 ${Math.round(dmg)}`);
@@ -1505,6 +1541,8 @@ function render(){
     }
   });
 
+  party.concat(foes).forEach(f=>{ if(!f.dead) drawSlash(g, f, F); });
+  drawSparks(g, F);
   shots.forEach(sh=>drawShot(g, sh));
   bolts.forEach(b=>{                       // 落雷菌：上から落ちる柱
     const p = b.t/0.35;
@@ -1536,6 +1574,41 @@ function render(){
     paintPad("padA", P.atk, "#B06A3B");
     paintPad("padG", P.grd, "#7C8F4E");
     paintPad("padS", P.sht, "#C6A24A");
+  }
+}
+
+/* ---------- 斬撃の軌跡：刃が通った跡を残す（当たっている実感のため） ---------- */
+function drawSlash(g, f, F){
+  if(f.state!=="active" || f.big) return;
+  const p = Math.min(1, f.t/f.s.active);
+  const hx = f.x + f.dir*HAND_X*K, hy = F - 38*K;
+  const r  = (f.s.bladeLen + 6) * K;
+  const ang = -1.05 + f.swing*1.9;
+  const a   = f.dir>0 ? ang : Math.PI - ang;      // 左向きは鏡像
+  const back = f.dir>0 ? -0.75 : 0.75;
+  g.save(); g.lineCap="round";
+  g.globalAlpha = 0.45*(1-p); g.strokeStyle = f.s.art.weapon; g.lineWidth = 9;
+  g.beginPath(); g.arc(hx, hy, r, a+back, a, f.dir<0); g.stroke();
+  g.globalAlpha = 0.85*(1-p); g.strokeStyle = "#FFF9E8"; g.lineWidth = 2.6;
+  g.beginPath(); g.arc(hx, hy, r*0.99, a+back*0.7, a, f.dir<0); g.stroke();
+  g.restore();
+}
+/* 命中の火花 */
+let sparks = [];
+function drawSparks(g, F){
+  for(const sp of sparks){
+    const p = sp.t/0.22;
+    g.save(); g.globalAlpha = Math.max(0,1-p);
+    g.strokeStyle="#FFF9E8"; g.lineWidth=2.4; g.lineCap="round";
+    for(let i=0;i<6;i++){
+      const a = i/6*Math.PI*2 + sp.seed;
+      const r0 = 6+p*14, r1 = 16+p*26;
+      g.beginPath();
+      g.moveTo(sp.x+Math.cos(a)*r0, sp.y+Math.sin(a)*r0);
+      g.lineTo(sp.x+Math.cos(a)*r1, sp.y+Math.sin(a)*r1);
+      g.stroke();
+    }
+    g.restore();
   }
 }
 
