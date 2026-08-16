@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KINOKO BLADE — 胞子紋闘技</title>
+<title>キノコ決闘団 — KINOKO DUEL SQUAD</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- 外部フォントは描画も script もブロックさせない。
@@ -46,7 +46,7 @@ body{
 
 /* ---- masthead ---- */
 .mast{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--ink-3);padding-bottom:6px;flex:0 0 auto}
-.mast h1{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.14em}
+.mast h1{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.10em}
 .mast .sub{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--dim);text-transform:uppercase}
 .mastR{display:flex;align-items:center;gap:10px}
 .snd{
@@ -190,10 +190,10 @@ body{
 <body>
 <div id="app">
   <div class="mast">
-    <h1>菌血闘技</h1>
+    <h1>キノコ決闘団</h1>
     <div class="mastR">
       <button id="sndBtn" class="snd" aria-pressed="true" aria-label="音のオン/オフ" title="音のオン/オフ">♪</button>
-      <span class="sub">Kinoko Blade</span>
+      <span class="sub">Kinoko Duel Squad</span>
     </div>
   </div>
 
@@ -480,19 +480,157 @@ const partySize = lv => (lv >= BOSS_EVERY*2 ? 3 : 2);
    差し替える。地形は変えない（壁の間隔＝バランスに触らないため）。
    ══════════════════════════════════════════════════════════════════ */
 const STAGES = [
-  { name:"胞子紋の間", sky:["#2E2939","#241F2D"], ring:"#3A3448", floor:"#4A4356",
-    ground:"#211E29", mote:"#6E6880" },
-  { name:"苔の洞",     sky:["#20302A","#17231F"], ring:"#2C4239", floor:"#3E5A4C",
-    ground:"#14201B", mote:"#7C8F4E" },
-  { name:"紅殻の丘",   sky:["#33212A","#261820"], ring:"#482E3A", floor:"#5E3B49",
-    ground:"#20141A", mote:"#D08A92" },
-  { name:"藍の霧",     sky:["#1F2A38","#16202B","fog"], ring:"#2E3E52", floor:"#3F5670",
-    ground:"#131B24", mote:"#8FC8EC" },
-  { name:"黄土の窖",   sky:["#302820","#241E17"], ring:"#463A2A", floor:"#5E4E36",
-    ground:"#1E1913", mote:"#C6A24A" },
-  { name:"白菌の床",   sky:["#2B2D36","#212329"], ring:"#3C3F4A", floor:"#565B69",
-    ground:"#1B1D22", mote:"#EDE4CC" },
+  { id:"forest", name:"森", sky:["#27352B","#1A241D"], ring:"#2E4034", floor:"#3E5A46",
+    ground:"#16201A", mote:"#9BCB66", far:"#1F2E20", mid:"#182618", near:"#122018", light:"#D8E8A0" },
+  { id:"town",   name:"街", sky:["#2B2B3C","#1B1B27"], ring:"#33334A", floor:"#4A4A66",
+    ground:"#15151F", mote:"#C6A24A", far:"#22223A", mid:"#1A1A2C", near:"#131320", light:"#F2C766" },
+  { id:"cave",   name:"洞窟", sky:["#251F2E","#171320"], ring:"#332A40", floor:"#463A56",
+    ground:"#120F18", mote:"#8FC8EC", far:"#1E1928", mid:"#171220", near:"#100D18", light:"#7FD8E8" },
+  { id:"lake",   name:"湖畔", sky:["#22303F","#17212E"], ring:"#2C4054", floor:"#3E5E7A",
+    ground:"#101822", mote:"#BFE3F2", far:"#1D2B3A", mid:"#16222F", near:"#0E1822", light:"#CFEAF7" },
+  { id:"shrine", name:"神社", sky:["#35232C","#241820"], ring:"#4A2E38", floor:"#6A3E48",
+    ground:"#1C1218", mote:"#F0A9A2", far:"#33191F", mid:"#4A222B", near:"#22131A", light:"#F5A860" },
+  { id:"snow",   name:"雪原", sky:["#2E3542","#20262F"], ring:"#3A4454", floor:"#7A8AA0",
+    ground:"#39424F", mote:"#FFFFFF", far:"#2C3644", mid:"#3E4A5A", near:"#4B5768", light:"#EAF3FA" },
 ];
+
+/* 種を固定した乱数。毎フレーム同じ配置が出るので木や建物がちらつかない */
+function srnd(seed){
+  let v = seed>>>0;
+  return ()=>{ v = (v + 0x6D2B79F5)>>>0;
+    let t = Math.imul(v ^ v>>>15, 1|v); t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+    return ((t ^ t>>>14)>>>0) / 4294967296; };
+}
+
+/* 情景は動かないので一度だけ別キャンバスに描いて使い回す
+   （毎フレーム100本近くのパスを引くのは端末に厳しい） */
+let sceneCv = null, sceneKey = "";
+function scenery(g, st, W, H, F){
+  const key = st.id+"|"+Math.round(W)+"x"+Math.round(H)+"|"+Math.round(F);
+  if(sceneKey !== key){
+    sceneCv = document.createElement("canvas");
+    sceneCv.width = Math.max(1,Math.round(W)); sceneCv.height = Math.max(1,Math.round(H));
+    drawScenery(sceneCv.getContext("2d"), st, W, H, F);
+    sceneKey = key;
+  }
+  g.drawImage(sceneCv, 0, 0, W, H);
+}
+
+/* ---------- 背景の情景 ----------
+   森・街・洞窟・湖畔・神社・雪原。遠景→中景→近景の3層。
+   キャラより目立たないよう、輪郭線は使わずシルエットだけで描く。 */
+function drawScenery(g, st, W, H, F){
+  const r = srnd(1234);
+  const horizon = F - H*0.02;
+
+  if(st.id==="forest"){
+    g.fillStyle=st.far;                                  // 遠くの梢
+    for(let i=0;i<10;i++){ const x=r()*W, h=H*(0.30+r()*0.26);
+      g.beginPath(); g.ellipse(x, F-h, 40+r()*26, 26+r()*14, 0, 0, 7); g.fill();
+      g.fillRect(x-4, F-h, 8, h); }
+    g.fillStyle=st.mid;                                  // 手前の太い幹
+    for(let i=0;i<5;i++){ const x=(i+0.5)*W/5 + (r()-0.5)*50, w=14+r()*12, h=H*(0.5+r()*0.3);
+      g.fillRect(x-w/2, F-h, w, h);
+      g.beginPath(); g.ellipse(x, F-h-4, 52+r()*24, 30+r()*12, 0, 0, 7); g.fill(); }
+    g.fillStyle=st.near;                                 // 下草
+    for(let i=0;i<26;i++){ const x=r()*W, hh=8+r()*16;
+      g.beginPath(); g.moveTo(x, F); g.quadraticCurveTo(x+4, F-hh*0.7, x+2+r()*6, F-hh);
+      g.lineTo(x+3, F); g.closePath(); g.fill(); }
+    for(let i=0;i<7;i++){ const x=r()*W;                 // 足元の小さいきのこ
+      g.fillStyle=st.light; g.globalAlpha=.5;
+      g.beginPath(); g.ellipse(x, F-7, 5, 3.4, 0, Math.PI, 0); g.fill();
+      g.fillRect(x-1.2, F-7, 2.4, 7); g.globalAlpha=1; }
+
+  } else if(st.id==="town"){
+    g.fillStyle=st.far;                                  // 奥のビル
+    for(let i=0;i<16;i++){ const w=22+r()*38, x=i*W/16-10, h=H*(0.22+r()*0.34);
+      g.fillRect(x, F-h, w, h); }
+    g.fillStyle=st.mid;                                  // 手前の建物
+    const rows=[];
+    for(let i=0;i<7;i++){ const w=48+r()*54, x=i*W/7-14, h=H*(0.30+r()*0.30);
+      g.fillRect(x, F-h, w, h); rows.push([x,w,h]); }
+    g.fillStyle=st.light;                                // 灯りのついた窓
+    rows.forEach(([x,w,h])=>{
+      for(let cy=F-h+12; cy<F-14; cy+=16)
+        for(let cx=x+7; cx<x+w-8; cx+=13){
+          if(r()<0.45){ g.globalAlpha=.35+r()*0.5; g.fillRect(cx, cy, 5, 7); } }
+    });
+    g.globalAlpha=1;
+    [W*0.22, W*0.62].forEach(x=>{                        // 街灯
+      g.fillStyle=st.near; g.fillRect(x-2, F-64, 4, 64);
+      g.fillStyle=st.light; g.globalAlpha=.85;
+      g.beginPath(); g.arc(x, F-68, 5.5, 0, 7); g.fill();
+      g.globalAlpha=.13; g.beginPath(); g.arc(x, F-68, 26, 0, 7); g.fill(); g.globalAlpha=1; });
+
+  } else if(st.id==="cave"){
+    g.fillStyle=st.far;                                  // 奥の岩肌
+    for(let i=0;i<9;i++){ const x=r()*W, y=F-H*(0.2+r()*0.5);
+      g.beginPath(); g.ellipse(x, y, 60+r()*50, 34+r()*24, 0, 0, 7); g.fill(); }
+    g.fillStyle=st.mid;                                  // 鍾乳石（上から）
+    for(let i=0;i<16;i++){ const x=i*W/16+r()*22, w=10+r()*16, h=24+r()*80;
+      g.beginPath(); g.moveTo(x-w/2, 0); g.lineTo(x+w/2, 0); g.lineTo(x, h); g.closePath(); g.fill(); }
+    g.fillStyle=st.near;                                 // 石筍（下から）
+    for(let i=0;i<10;i++){ const x=r()*W, w=12+r()*20, h=14+r()*44;
+      g.beginPath(); g.moveTo(x-w/2, F); g.lineTo(x+w/2, F); g.lineTo(x, F-h); g.closePath(); g.fill(); }
+    g.fillStyle=st.light; g.globalAlpha=.5;              // 光る菌
+    for(let i=0;i<12;i++){ const x=r()*W, y=F-10-r()*H*0.5;
+      g.beginPath(); g.arc(x, y, 2+r()*2, 0, 7); g.fill(); }
+    g.globalAlpha=1;
+
+  } else if(st.id==="lake"){
+    g.fillStyle=st.far;                                  // 遠くの山
+    for(let i=0;i<6;i++){ const x=i*W/5-30, w=140+r()*120, h=H*(0.26+r()*0.24);
+      g.beginPath(); g.moveTo(x-w/2, horizon); g.lineTo(x, horizon-h); g.lineTo(x+w/2, horizon);
+      g.closePath(); g.fill(); }
+    g.fillStyle=st.mid;                                  // 水面
+    g.fillRect(0, horizon-2, W, F-horizon+2);
+    g.strokeStyle=st.light; g.lineWidth=1;               // さざなみ
+    for(let i=0;i<16;i++){ const y=horizon+2+r()*(F-horizon-2), x=r()*W, w=14+r()*40;
+      g.globalAlpha=.10+r()*0.14; g.beginPath(); g.moveTo(x, y); g.lineTo(x+w, y); g.stroke(); }
+    g.globalAlpha=1; g.fillStyle=st.near;                // 岸の葦
+    for(let i=0;i<22;i++){ const x=r()*W, h=16+r()*30;
+      g.beginPath(); g.moveTo(x, F); g.quadraticCurveTo(x+6, F-h*0.6, x+3+r()*8, F-h);
+      g.lineTo(x+2.5, F); g.closePath(); g.fill(); }
+
+  } else if(st.id==="shrine"){
+    g.fillStyle=st.far;                                  // 奥の杜
+    for(let i=0;i<8;i++){ const x=r()*W, h=H*(0.24+r()*0.24);
+      g.beginPath(); g.ellipse(x, F-h, 46+r()*26, 28+r()*12, 0, 0, 7); g.fill(); }
+    // 鳥居（中央に大きく）
+    const tx=W*0.5, ty=F, tw=W*0.36, th=H*0.52, pw=13;
+    g.fillStyle=st.mid;
+    g.fillRect(tx-tw/2, ty-th, pw, th); g.fillRect(tx+tw/2-pw, ty-th, pw, th);
+    g.beginPath();                                        // 笠木（反りを付ける）
+    g.moveTo(tx-tw/2-22, ty-th-4); g.quadraticCurveTo(tx, ty-th-20, tx+tw/2+22, ty-th-4);
+    g.lineTo(tx+tw/2+22, ty-th+8); g.quadraticCurveTo(tx, ty-th-8, tx-tw/2-22, ty-th+8);
+    g.closePath(); g.fill();
+    g.fillRect(tx-tw/2-6, ty-th+26, tw+12, 9);            // 貫
+    [W*0.2, W*0.8].forEach(x=>{                           // 石灯籠
+      g.fillStyle=st.near; g.fillRect(x-9, F-16, 18, 16); g.fillRect(x-5, F-34, 10, 18);
+      g.fillStyle=st.light; g.globalAlpha=.8;
+      g.fillRect(x-7, F-46, 14, 12);
+      g.globalAlpha=.12; g.beginPath(); g.arc(x, F-40, 24, 0, 7); g.fill(); g.globalAlpha=1;
+      g.fillStyle=st.near; g.fillRect(x-11, F-50, 22, 5); });
+
+  } else {                                               // snow
+    g.fillStyle=st.far;                                  // 遠くの針葉樹
+    for(let i=0;i<12;i++){ const x=r()*W, h=H*(0.16+r()*0.2), w=18+r()*14;
+      for(let k=0;k<3;k++){ const kk=k/3;
+        g.beginPath();
+        g.moveTo(x-w*(1-kk)/2, F-h*kk-h*0.1); g.lineTo(x, F-h*kk-h*0.42);
+        g.lineTo(x+w*(1-kk)/2, F-h*kk-h*0.1); g.closePath(); g.fill(); } }
+    g.fillStyle=st.mid;                                  // 手前の木立
+    for(let i=0;i<5;i++){ const x=(i+0.5)*W/5+(r()-0.5)*60, h=H*(0.3+r()*0.2), w=34+r()*18;
+      for(let k=0;k<3;k++){ const kk=k/3;
+        g.beginPath();
+        g.moveTo(x-w*(1-kk)/2, F-h*kk-h*0.08); g.lineTo(x, F-h*kk-h*0.44);
+        g.lineTo(x+w*(1-kk)/2, F-h*kk-h*0.08); g.closePath(); g.fill(); } }
+    g.fillStyle=st.near;                                 // 雪の吹きだまり
+    for(let i=0;i<8;i++){ const x=r()*W;
+      g.beginPath(); g.ellipse(x, F+2, 40+r()*46, 9+r()*8, 0, Math.PI, 0); g.fill(); }
+  }
+}
+
 const stageFor = lv => STAGES[((lv-1) % STAGES.length + STAGES.length) % STAGES.length];
 
 /* ボスの当たり判定は体の大きさに合わせて広い */
@@ -1508,11 +1646,14 @@ function render(){
   sky.addColorStop(0, stage.sky[0]); sky.addColorStop(1, stage.sky[1]);
   g.fillStyle = sky; g.fillRect(0,0,W,H);
 
-  // 背景：胞子紋の同心円。画面が縦に伸びた分だけ輪も増やして空白を埋める
-  g.save(); g.globalAlpha=.34; g.strokeStyle=stage.ring; g.lineWidth=1;
+  // 胞子紋の同心円は情景の下に薄く敷く（署名要素は残しつつ情景を主役にする）
+  g.save(); g.globalAlpha=.13; g.strokeStyle=stage.ring; g.lineWidth=1;
   const rMax = Math.max(300, H*1.4);
   for(let r=30;r<rMax;r+=24){ g.beginPath(); g.arc(W/2,F,r,Math.PI,0); g.stroke(); }
   g.restore();
+
+  // 情景（森・街・洞窟・湖畔・神社・雪原）
+  g.save(); scenery(g, stage, W, H, F); g.restore();
 
   // 漂う胞子（面ごとに色が違う）
   g.save(); g.fillStyle=stage.mote; g.globalAlpha=.22;
@@ -1908,7 +2049,7 @@ function drawGachapon(a){
   x.strokeStyle="#4A4456"; x.lineWidth=2; x.stroke();
   x.fillStyle="#332E40"; x.beginPath(); x.roundRect(48,126,124,24,6); x.fill();
   x.fillStyle="#EDE4CC"; x.font="700 13px "+getComputedStyle(document.body).fontFamily;
-  x.textAlign="center"; x.fillText("菌 血 闘 技", 110, 143);
+  x.textAlign="center"; x.fillText("決 闘 団", 110, 143);
 
   // ---- ドーム（ガラス）----
   x.save();
